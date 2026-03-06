@@ -49,7 +49,7 @@ INLP-Project-S26/
 Loads GPT-2 Small via TransformerLens and defines the prompt pair.
 
 ### Phase 1 — Behavioural Comparison
-Checks surface-level output: where does `" Paris"` rank for each prompt? A high rank on the negated prompt confirms the **negation failure**.
+Checks surface-level output: where does `"Paris"` rank for each prompt? A high rank on the negated prompt confirms the **negation failure**.
 
 ### Phase 2 — Residual Stream Decomposition
 Uses `cache.decompose_resid()` to break the final residual stream into each component's (embedding, attention, FFN) individual contribution — essentially "who wrote what" into the model's working memory.

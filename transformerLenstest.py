@@ -119,9 +119,12 @@ print(
     ),
 )
 
-negation_failure = neg_info["target_rank"] <= 3
+# Negation failure: the negated prompt should INCREASE the target's rank
+# (lower probability). If the rank is lower (= higher prob) in the negated
+# prompt than in the positive prompt, the model failed to suppress the target.
+negation_failure = neg_info["target_rank"] < pos_info["target_rank"]
 print(
-    f"\n→ Negation failure? {'YES — model still ranks target highly!' if negation_failure else 'No — model suppressed it.'}"
+    f"\n→ Negation failure? {'YES — target ranked higher after negation!' if negation_failure else 'No — model suppressed it.'}"
 )
 print()
 
@@ -343,17 +346,23 @@ for layer in range(n_layers):
         f"{cumulative_total[layer]:>10.3f}"
     )
 
-# Find crossover: first layer where cumulative total goes negative
+# Find crossover: the first layer where the cumulative total flips from
+# negative (net inhibition) to positive (net retrieval / negation failure).
+# If the total is always negative  → suppression holds throughout (success).
+# If the total is always positive  → retrieval dominates from the start.
+# If there is a sign change → crossover marks where retrieval wins.
 crossover = None
-for layer in range(n_layers):
-    if cumulative_total[layer] < 0:
+for layer in range(1, n_layers):
+    if cumulative_total[layer - 1] < 0 <= cumulative_total[layer]:
         crossover = layer
         break
 
-if crossover is not None:
-    print(f"\n→ Crossover at layer {crossover}: inhibition overtakes retrieval!")
+if all(v >= 0 for v in cumulative_total):
+    print(f"\n→ No crossover: retrieval dominates from the start. Negation fails.")
+elif all(v < 0 for v in cumulative_total):
+    print(f"\n→ No crossover: inhibition holds throughout. Successful suppression.")
 else:
-    print(f"\n→ No crossover found: retrieval dominates throughout. Negation fails.")
+    print(f"\n→ Crossover at layer {crossover}: retrieval overcomes inhibition here.")
 print()
 
 
@@ -400,21 +409,20 @@ print()
 def patch_residual_hook(value, hook, pos_cache, layer_idx):
     """Hook that patches the residual stream at a specific layer.
 
-    Replaces the negated-prompt activation with the positive-prompt
-    activation at the last token position.
+    Because GPT-2 uses causal (unidirectional) attention, every position
+    i sees only tokens 0..i. This means positions 0..(n-1) of the negated
+    prompt have IDENTICAL residual-stream values to those same positions in
+    the positive prompt — patching them would be a no-op and produce Δ=0.
 
-    Note: The positive and negated prompts have different sequence
-    lengths (negated has one extra token: 'not'). We patch the
-    last position of the negated prompt with the last position of
-    the positive prompt — this is the position where the model
-    makes its prediction.
+    The only position that actually differs between the two prompts is the
+    LAST position (where the model makes its next-token prediction). We
+    therefore patch only position -1 of the negated run with position -1
+    of the positive run, asking: "if this layer saw the positive-prompt
+    prediction-position activation, how would the output change?"
     """
-    # Get the positive activation for this layer
     pos_act = pos_cache[hook.name]
-    # Patch: replace last token position only
-    # Use min of the two sequence lengths for safety
-    min_seq = min(value.shape[1], pos_act.shape[1])
-    value[:, :min_seq, :] = pos_act[:, :min_seq, :]
+    # Patch only the last token position (prediction position)
+    value[:, -1, :] = pos_act[:, -1, :]
     return value
 
 
@@ -718,7 +726,7 @@ print(
   │    Inhibition : {inhibition_strength:>8.3f}                              │
   │    SGR        : {sgr:>8.3f}  {'(FAILURE)' if sgr > 1 else '(SUCCESS)'}                     │
   ├─────────────────────────────────────────────────────────┤
-  │  Crossover Point: {f'Layer {crossover}' if crossover else 'NONE (retrieval dominates)':>20}              │
+  │  Crossover Point: {f'Layer {crossover}' if crossover is not None else 'NONE':>20}              │
   └─────────────────────────────────────────────────────────┘
 
   Figures saved to ./{fig_dir}/
