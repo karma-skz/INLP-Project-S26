@@ -33,7 +33,7 @@ from transformer_lens import HookedTransformer
 from functools import partial
 
 # ── reproducibility ──────────────────────────────────────────────────────────
-torch.manual_seed(42)
+torch.manual_seed(67)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ═══════════════════════════════════════════════════════════════════════════════

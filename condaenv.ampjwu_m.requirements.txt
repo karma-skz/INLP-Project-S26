@@ -1,0 +1,12 @@
+torch
+transformers
+transformer_lens
+datasets
+numpy
+pandas
+matplotlib
+seaborn
+tqdm
+einops
+scipy
+pyyaml
