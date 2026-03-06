@@ -10,3 +10,4 @@ models/*
 !data/README.md
 !models/README.md
 !results/benchmark_results.json
+inlp/
