@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+.ipynb_checkpoints
+results/*
+data/*
+models/*
+
+# Keep placeholder READMEs
+!data/README.md
+!models/README.md
+!results/benchmark_results.json

@@ -1,0 +1,20 @@
+name: inlp-project
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - torch
+      - transformers
+      - transformer_lens
+      - datasets
+      - numpy
+      - pandas
+      - matplotlib
+      - seaborn
+      - tqdm
+      - einops
+      - scipy
+      - pyyaml

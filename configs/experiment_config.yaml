@@ -1,0 +1,7 @@
+dataset_size: 100
+models:
+  - gpt2-small
+  - pythia-160m
+
+device: auto
+batch_size: 1
