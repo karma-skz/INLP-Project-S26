@@ -1,13 +1,36 @@
+### Python ###
 __pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+
+### Environment ###
 .env
-.ipynb_checkpoints
+.venv/
+env/
+
+### Jupyter ###
+.ipynb_checkpoints/
+*.ipynb
+
+### Data & outputs ###
 results/*
 data/*
 models/*
 
-# Keep placeholder READMEs
+# Keep placeholder files
 !data/README.md
 !models/README.md
-!results/benchmark_results.json
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### HuggingFace cache (if local) ###
+.cache/
+
+### Misc ###
 inlp/
