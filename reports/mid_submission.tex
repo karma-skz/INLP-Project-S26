@@ -67,7 +67,7 @@ We propose the \textbf{Competitive Gating Hypothesis}.  Factual recall acts
 like a reflex: it retrieves the most probable token regardless of logical
 context.  The negation operator acts as a secondary gatekeeper that must
 ``undo'' this work in the final layers.  This paper maps the battlefield
-between these two forces and identifies the \emph{Crossover Point}---the
+between these two forces and identifies the \emph{Crossover Point}, the
 layer where logic either overrides the memory signal or fails to contain it.
 
 Our contributions are:
@@ -92,7 +92,7 @@ data into the residual stream \emph{independently} of logical structure.
 
 \subsection{Finding the ``Off Switch''}
 Wang et al.\ \shortcite{wang2023} established the framework for identifying
-\emph{circuits}---subsets of model components responsible for specific
+\emph{circuits}, subsets of model components responsible for specific
 behaviours.  Hanna et al.\ \shortcite{hanna2024} identified
 \textbf{Inhibition Heads}: attention heads that attend to logical modifiers
 and decrease the probability of the forbidden token.
@@ -199,7 +199,7 @@ We decompose attention DLA to the individual \emph{head} level using
 \verb|cache.stack_head_results()|.  For each head $(l,h)$ we compute
 DLA on both the positive and negated prompt.  Heads with a large
 $\Delta\mathrm{DLA} = \mathrm{DLA}_{\mathrm{pos}} - \mathrm{DLA}_{\mathrm{neg}}$
-are candidate \textbf{Inhibition Heads}---they promote the target on the
+are candidate \textbf{Inhibition Heads}: they promote the target on the
 positive prompt but suppress it on the negated prompt.  We rank all
 $12 \times 12 = 144$ heads and select the top-$k$ for amplification
 (\S\ref{sec:amp}).
@@ -324,7 +324,7 @@ Figure~\ref{fig:crossover} shows the mean per-layer DLA on negated
 prompts, split by FFN and Attention contributions.  Rows separate
 successes from failures.  Critically, the FFN heatmap shows strong
 \emph{positive} contributions in mid-layers (5--9) regardless of negation
-outcome---confirming that \textbf{memory retrieval is logic-blind}.
+outcome, confirming that \textbf{memory retrieval is logic-blind}.
 The Attention heatmap reveals that suppression is concentrated in the
 final layers and is notably weaker in failure cases.
 
@@ -385,7 +385,7 @@ Competitive Gating Hypothesis generalises across architectures.
 \subsection{Per-Head DLA Heatmap}
 Figure~\ref{fig:headmap} shows the per-head DLA decomposition on the
 canonical ``capital of France'' example.  The delta panel (right)
-highlights specific heads that react most strongly to negation---these
+highlights specific heads that react most strongly to negation; these
 are our candidate Inhibition Heads.
 
 \begin{figure}[t]
@@ -415,26 +415,26 @@ original proposal.  Table~\ref{tab:gaps} summarises the status.
 
 \begin{table}[t]
 \centering\small
-\begin{tabular}{@{}p{5.5cm}cc@{}}
+\begin{tabular}{@{}p{4.8cm}cp{2.8cm}@{}}
 \toprule
 \textbf{Proposal Element} & \textbf{Done?} & \textbf{Location} \\
 \midrule
-Residual stream decomposition       & \checkmark & \verb|run_benchmark.py| \\
-Direct Logit Attribution (DLA)      & \checkmark & \verb|run_benchmark.py| \\
-Per-layer FFN vs.\ Attn DLA         & \checkmark & \verb|run_benchmark.py| \\
-Signal-to-Gate Ratio (SGR)          & \checkmark & \verb|run_benchmark.py| \\
-Crossover Point detection           & \checkmark & \verb|run_benchmark.py| \\
-Per-head DLA decomposition          & \checkmark & \verb|per_head.py| \\
-Inhibition Head identification      & \checkmark & \verb|per_head.py| \\
-Activation patching (causal)        & \checkmark & \verb|transformerLenstest.py| \\
-Artificial amplification            & \checkmark & \verb|amplification.py| \\
-CounterFact dataset integration     & \checkmark & \verb|load_dataset.py| \\
-GPT-2 Small support                 & \checkmark & \verb|load_models.py| \\
-Pythia-160M support                 & \checkmark & \verb|load_models.py| \\
-Statistical tests (Spearman, CI)    & \checkmark & \verb|metrics.py| \\
-Hard negation (``is not'')          & \checkmark & \verb|load_dataset.py| \\
-Soft negation (``unlikely to be'')  & Planned    & --- \\
-Patching in main pipeline           & Planned    & --- \\
+Residual stream decomposition       & \checkmark & \texttt{run\_benchmark.py} \\
+Direct Logit Attribution (DLA)      & \checkmark & \texttt{run\_benchmark.py} \\
+Per-layer FFN vs.\ Attn DLA         & \checkmark & \texttt{run\_benchmark.py} \\
+Signal-to-Gate Ratio (SGR)          & \checkmark & \texttt{run\_benchmark.py} \\
+Crossover Point detection           & \checkmark & \texttt{run\_benchmark.py} \\
+Per-head DLA decomposition          & \checkmark & \texttt{per\_head.py} \\
+Inhibition Head identification      & \checkmark & \texttt{per\_head.py} \\
+Activation patching (causal)        & \checkmark & \texttt{transformerLenstest.py} \\
+Artificial amplification            & \checkmark & \texttt{amplification.py} \\
+CounterFact dataset integration     & \checkmark & \texttt{load\_dataset.py} \\
+GPT-2 Small support                 & \checkmark & \texttt{load\_models.py} \\
+Pythia-160M support                 & \checkmark & \texttt{load\_models.py} \\
+Statistical tests (Spearman, CI)    & \checkmark & \texttt{metrics.py} \\
+Hard negation (``is not'')          & \checkmark & \texttt{load\_dataset.py} \\
+Soft negation (``unlikely to be'')  & Planned    & \\
+Patching in main pipeline           & Planned    & \\
 \bottomrule
 \end{tabular}
 \caption{Proposal element coverage.  All core techniques are implemented;
@@ -465,13 +465,27 @@ Patching in main pipeline           & Planned    & --- \\
 
 \subsection{Planned}
 \begin{itemize}
+\item \textbf{Hard negation audit:}  Examine a broader set of hard
+      negation examples to identify semantic patterns associated with
+      hallucinations, specifically which entity types or prompt structures
+      consistently produce negation failures.
 \item \textbf{Soft negation:}  Append ``unlikely to be'' instead of ``not''
       and compare SGR distributions.  We expect weaker inhibition in
       smaller models.
+\item \textbf{SGR${<}$1 verification:}  Audit cases where
+      $\mathrm{SGR} < 1$ to rigorously verify the Competitive Gating
+      Hypothesis.  All observed negation failures correspond to
+      $\mathrm{SGR} > 1$; confirming that $\mathrm{SGR} < 1$ cases are
+      consistently suppressed would provide complete validation of the
+      hypothesis.
 \item \textbf{Crossover analysis:}  Histogram the crossover layer across
       the dataset; correlate crossover depth with SGR and failure.
 \item \textbf{Extended amplification:}  Sweep finer scale grids; test
       whether amplification helps Pythia more than GPT-2.
+\item \textbf{Larger-model generalisation:}  Expand the analysis to
+      comparatively larger models (e.g.\ GPT-2 Medium/Large,
+      Pythia-410M) to test whether the Competitive Gating Hypothesis
+      generalises beyond small-scale architectures.
 \item \textbf{Ablation:}  Remove individual inhibition heads to confirm
       causal necessity (complement to amplification).
 \end{itemize}
@@ -481,7 +495,7 @@ Patching in main pipeline           & Planned    & --- \\
 \centering\small
 \begin{tabular}{@{}cl@{}}
 \toprule
-\textbf{Week} & \textbf{Milestone} \\
+\textbf{Checkpoint} & \textbf{Milestone} \\
 \midrule
 1 (done) & Implement DLA + SGR pipeline; GPT-2 full run \\
 2 (done) & Pythia run; per-head analysis; amplification \\
@@ -504,7 +518,7 @@ If our Competitive Gating Hypothesis is correct, we expect:
       prompts (early layers, ``logic-blind'' recall).
 \item Negation suppression to appear only in \textbf{late attention layers}.
 \item Soft negation to produce \textbf{weaker} inhibition than hard negation.
-\item Hallucinations to occur precisely when $\mathrm{SGR} > 1$---when
+\item Hallucinations to occur precisely when $\mathrm{SGR} > 1$, when
       retrieval magnitude exceeds inhibition magnitude.
 \item Artificial amplification of Inhibition Heads to \textbf{reduce}
       failure rates, confirming a causal role.
