@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.3.5)  8 MAR 2026 22:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.4.7)  8 MAR 2026 23:01
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -557,231 +557,209 @@ Package microtype Info: Loading generic protrusion settings for font family
 
 
 ]
-Underfull \hbox (badness 10000) in paragraph at lines 134--138
-\T1/ptm/m/n/10.95 (+20) Each layer's MLP is $[]\OT1/cmr/m/n/10.95 (\OT1/cmr/bx/
-n/10.95 x\OT1/cmr/m/n/10.95 ) =
- []
-
-
-Underfull \hbox (badness 7433) in paragraph at lines 134--138
-\OT1/cmr/bx/n/10.95 W[] []\OT1/cmr/m/n/10.95 (\OT1/cmr/bx/n/10.95 W[]x\OT1/cmr/
-m/n/10.95 )$\T1/ptm/m/n/10.95 (+20) . A key in-ter-pretabil-ity
- []
-
-
-Underfull \hbox (badness 1789) in paragraph at lines 134--138
-\T1/ptm/m/n/10.95 (+20) stores ([][]Geva et al.[][], [][]2021[][]): mid-layer F
-FNs
- []
-
 LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 1
-39.
-(/usr/share/texlive/texmf-dist/tex/latex/psnfss/ts1ptm.fd
+40.
+ (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
 )
-Underfull \hbox (badness 1502) in paragraph at lines 164--168
+Underfull \hbox (badness 1502) in paragraph at lines 165--169
 []\T1/ptm/b/n/10.95 (+20) Tokenisation caveat. \T1/ptm/m/n/10.95 (+20) GPT-2 / 
 Pythia to-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 200--208
+Underfull \hbox (badness 10000) in paragraph at lines 201--209
 \T1/ptm/m/n/10.95 (+20) We de-com-pose at-ten-tion DLA to
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 200--208
+Underfull \hbox (badness 10000) in paragraph at lines 201--209
 \T1/ptm/m/n/10.95 (+20) the in-di-vid-ual \T1/ptm/m/it/10.95 (+20) head \T1/ptm
 /m/n/10.95 (+20) level us-ing
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 200--208
+Underfull \hbox (badness 10000) in paragraph at lines 201--209
 [][]\T1/pcr/m/n/10.95 cache.stack_head_results()[]\T1/ptm/m/n/10.95 (+20) . For
 
  []
 
 [2]
-Underfull \hbox (badness 2080) in paragraph at lines 214--216
+Underfull \hbox (badness 2080) in paragraph at lines 215--217
 []\T1/ptm/m/n/10.95 (+20) Run the \T1/ptm/b/n/10.95 (+20) pos-i-tive \T1/ptm/m/
 n/10.95 (+20) prompt and cache all
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 262--263
+Underfull \hbox (badness 10000) in paragraph at lines 263--264
 []\T1/ptm/m/n/10.95 (+20) Runs both through the model with
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 263--264
+Underfull \hbox (badness 10000) in paragraph at lines 264--265
 []\T1/ptm/m/n/10.95 (+20) Decomposes the resid-ual stream via
  []
 
 
-Underfull \hbox (badness 1953) in paragraph at lines 282--283
+Underfull \hbox (badness 1953) in paragraph at lines 283--284
 []\T1/ptm/b/n/10.95 (+20) GPT-2 Small: \T1/ptm/m/n/10.95 (+20) 21,919 prompt pa
 irs (0
  []
 
 [3]
-<../figures/main_output/sgr_histogram.png, id=222, 722.7pt x 361.35pt>
+<../figures/main_output/sgr_histogram.png, id=212, 722.7pt x 361.35pt>
 File: ../figures/main_output/sgr_histogram.png Graphic file (type png)
 <use ../figures/main_output/sgr_histogram.png>
 Package pdftex.def Info: ../figures/main_output/sgr_histogram.png  used on inpu
-t line 326.
+t line 329.
 (pdftex.def)             Requested size: 219.08614pt x 109.54166pt.
-<../figures/main_output/per_layer_dla_mean.png, id=225, 1011.78pt x 505.89pt>
+<../figures/main_output/per_layer_dla_mean.png, id=215, 1011.78pt x 505.89pt>
 File: ../figures/main_output/per_layer_dla_mean.png Graphic file (type png)
 <use ../figures/main_output/per_layer_dla_mean.png>
 Package pdftex.def Info: ../figures/main_output/per_layer_dla_mean.png  used on
- input line 346.
+ input line 349.
 (pdftex.def)             Requested size: 219.08614pt x 109.54387pt.
-<../figures/main_output/sgr_failure_rate.png, id=227, 650.43pt x 361.35pt>
+<../figures/main_output/sgr_failure_rate.png, id=217, 650.43pt x 361.35pt>
 File: ../figures/main_output/sgr_failure_rate.png Graphic file (type png)
 <use ../figures/main_output/sgr_failure_rate.png>
 Package pdftex.def Info: ../figures/main_output/sgr_failure_rate.png  used on i
-nput line 360.
+nput line 363.
 (pdftex.def)             Requested size: 219.08614pt x 121.71051pt.
-<../figures/main_output/amplification_sweep.png, id=229, 939.51pt x 361.35pt>
+<../figures/main_output/amplification_sweep.png, id=219, 939.51pt x 361.35pt>
 File: ../figures/main_output/amplification_sweep.png Graphic file (type png)
 <use ../figures/main_output/amplification_sweep.png>
 Package pdftex.def Info: ../figures/main_output/amplification_sweep.png  used o
-n input line 382.
+n input line 385.
 (pdftex.def)             Requested size: 107.35341pt x 41.28696pt.
-<../figures/main_output/amplification_failure_rate.png, id=230, 578.16pt x 361.
+<../figures/main_output/amplification_failure_rate.png, id=220, 578.16pt x 361.
 35pt>
 File: ../figures/main_output/amplification_failure_rate.png Graphic file (type 
 png)
 <use ../figures/main_output/amplification_failure_rate.png>
 Package pdftex.def Info: ../figures/main_output/amplification_failure_rate.png 
- used on input line 383.
+ used on input line 386.
 (pdftex.def)             Requested size: 107.35341pt x 67.09131pt.
  [4 <../figures/main_output/sgr_histogram.png> <../figures/main_output/per_laye
 r_dla_mean.png> <../figures/main_output/sgr_failure_rate.png> <../figures/main_
 output/amplification_sweep.png> <../figures/main_output/amplification_failure_r
 ate.png>]
-<../figures/main_output/sgr_model_comparison.png, id=245, 867.24pt x 361.35pt>
+<../figures/main_output/sgr_model_comparison.png, id=235, 867.24pt x 361.35pt>
 File: ../figures/main_output/sgr_model_comparison.png Graphic file (type png)
 <use ../figures/main_output/sgr_model_comparison.png>
 Package pdftex.def Info: ../figures/main_output/sgr_model_comparison.png  used 
-on input line 406.
+on input line 409.
 (pdftex.def)             Requested size: 219.08614pt x 91.28564pt.
-<../figures/head_dla_heatmap.png, id=247, 1300.86pt x 361.35pt>
+<../figures/head_dla_heatmap.png, id=237, 1300.86pt x 361.35pt>
 File: ../figures/head_dla_heatmap.png Graphic file (type png)
 <use ../figures/head_dla_heatmap.png>
 Package pdftex.def Info: ../figures/head_dla_heatmap.png  used on input line 42
-0.
+3.
 (pdftex.def)             Requested size: 219.08614pt x 60.85526pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 428--434
+Underfull \hbox (badness 10000) in paragraph at lines 431--437
 \T1/ptm/m/n/10.95 (+20) Activation patch-ing ex-per-i-ments (re-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 428--434
+Underfull \hbox (badness 10000) in paragraph at lines 431--437
 \T1/ptm/m/n/10.95 (+20) ported in our ex-ploratory script
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 428--434
+Underfull \hbox (badness 10000) in paragraph at lines 431--437
 [][]\T1/pcr/m/n/10.95 transformerLenstest.py[]\T1/ptm/m/n/10.95 (+20) ) con-fir
 med
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (53.4911pt too wide) in paragraph at lines 468--468
+Overfull \hbox (53.4911pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 transformerLenstest.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 amplification.py| 
  []
 
 
-Overfull \hbox (7.50116pt too wide) in paragraph at lines 468--468
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 load_dataset.py| 
  []
 
 
-Overfull \hbox (0.93117pt too wide) in paragraph at lines 468--468
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Overfull \hbox (0.93117pt too wide) in paragraph at lines 468--468
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Overfull \hbox (7.50116pt too wide) in paragraph at lines 468--468
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 471--471
 []\T1/pcr/m/n/10.95 load_dataset.py| 
  []
 
 
-Underfull \hbox (badness 4013) in paragraph at lines 483--484
+Underfull \hbox (badness 4013) in paragraph at lines 486--487
 []\T1/ptm/m/n/10.95 (+20) Amplification sweep (single-prompt and
  []
 
 [5 <../figures/main_output/sgr_model_comparison.png> <../figures/head_dla_heatm
 ap.png>]
-Underfull \hbox (badness 2065) in paragraph at lines 518--520
+Underfull \hbox (badness 2065) in paragraph at lines 514--516
 []\T1/ptm/b/n/10.95 (+20) Ablation: \T1/ptm/m/n/10.95 (+20) Re-move in-di-vid-u
 al in-hi-bi-tion
  []
 
 
-Overfull \hbox (12.90765pt too wide) in paragraph at lines 525--536
- [][] 
- []
-
-
-Underfull \hbox (badness 4328) in paragraph at lines 550--552
+Underfull \hbox (badness 4328) in paragraph at lines 529--531
 []\T1/ptm/m/n/10.95 (+20) Hallucinations to oc-cur pre-cisely when
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 561--564
+Underfull \hbox (badness 10000) in paragraph at lines 540--543
 \T1/ptm/m/n/10.95 (+20) The full code-base is avail-able at
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 561--564
+Underfull \hbox (badness 10000) in paragraph at lines 540--543
 [][]$\T1/pcr/m/n/10.95 https : / / github . com / karma-[]skz /
  []
 
 
-Overfull \hbox (10.86359pt too wide) in paragraph at lines 569--569
+Overfull \hbox (10.86359pt too wide) in paragraph at lines 548--548
 []  \T1/pcr/m/n/10.95 --models gpt2-small pythia-160m \[] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 570--572
+Underfull \hbox (badness 10000) in paragraph at lines 549--551
 []\T1/ptm/m/n/10.95 (+20) (Py-Torch, Trans-former-Lens, Hug-ging-Face
  []
 
@@ -801,37 +779,34 @@ it/10 (+20) Preprint\T1/ptm/m/n/10 (+20) ,
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `mid_submission.out' has not changed.
-(rerunfilecheck)             Checksum: 0F8DEE8AB5B6CA0345D15CFCB4A5698B;5975.
+(rerunfilecheck)             Checksum: 85F0AEA286746A7F02FD2D93821FEBA5;5731.
  ) 
 Here is how much of TeX's memory you used:
- 15225 strings out of 476182
- 240006 string characters out of 5795596
- 1946975 words of memory out of 5000000
- 36635 multiletter control sequences out of 15000+600000
- 618311 words of font info for 300 fonts, out of 8000000 for 9000
+ 15230 strings out of 476182
+ 240059 string characters out of 5795596
+ 1944975 words of memory out of 5000000
+ 36634 multiletter control sequences out of 15000+600000
+ 618701 words of font info for 306 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,11n,93p,1011b,591s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,11n,93p,1011b,545s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr/share/texlive/tex
-mf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist
-/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/t
-ype1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/p
-ublic/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
-msfonts/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/couri
-er/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><
-/usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texl
-ive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on mid_submission.pdf (6 pages, 590357 bytes).
+mf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/share/texlive/texmf-dist
+/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/
+type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts
+/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/courier/ucrr
+8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/sh
+are/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/tex
+mf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on mid_submission.pdf (6 pages, 600325 bytes).
 PDF statistics:
- 361 PDF objects out of 1000 (max. 8388607)
- 309 compressed objects within 4 object streams
- 84 named destinations out of 1000 (max. 500000)
- 59204 words of extra memory for PDF output out of 61914 (max. 10000000)
+ 357 PDF objects out of 1000 (max. 8388607)
+ 303 compressed objects within 4 object streams
+ 81 named destinations out of 1000 (max. 500000)
+ 59188 words of extra memory for PDF output out of 61914 (max. 10000000)
 

@@ -131,10 +131,11 @@ others copy factual information forward.  Attention is
 \emph{information routing}.
 
 \subsection{Feed-Forward Networks}
-Each layer's MLP is $\mathrm{FFN}(\mathbf{x}) = \mathbf{W}_2 \,
-\mathrm{GELU}(\mathbf{W}_1 \mathbf{x})$.  A key interpretability insight
-is that FFNs behave like key--value memory stores \cite{geva-etal-2021-transformer}: mid-layer
-FFNs strongly store entity--attribute associations.  In our framework:
+Each layer's MLP is:
+\[ \mathrm{FFN}(\mathbf{x}) = \mathbf{W}_2\,\mathrm{GELU}(\mathbf{W}_1 \mathbf{x}). \]
+A key interpretability insight is that FFNs behave like key--value memory
+stores~\cite{geva-etal-2021-transformer}: mid-layer FFNs strongly store
+entity--attribute associations.  In our framework:
 \begin{itemize}
 \item FFNs $=$ \textbf{memory retrieval},
 \item Attention heads $=$ \textbf{control / suppression}.
@@ -483,13 +484,6 @@ Patching in main pipeline           & Planned    & \\
 \item Amplification sweep (single-prompt and dataset-level).
 \item Statistical analysis: bootstrap CIs, Spearman correlation, Mann--Whitney tests.
 \item Cross-model comparison infrastructure.
-\end{itemize}
-
-\subsection{Ongoing}
-\begin{itemize}
-\item Analyse Pythia-160M results in detail and compare SGR distributions.
-\item Integrate activation patching into the main pipeline for dataset-level
-      causal analysis.
 \end{itemize}
 
 \subsection{Planned}
