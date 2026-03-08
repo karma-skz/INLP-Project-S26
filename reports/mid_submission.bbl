@@ -1,0 +1,62 @@
+\begin{thebibliography}{8}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Dai et~al.(2022)Dai, Dong, Hao, Sui, Chang, and Wei}]{dai2022}
+Damai Dai, Li~Dong, Yaru Hao, Zhifang Sui, Baobao Chang, and Furu Wei. 2022.
+\newblock Knowledge neurons in pretrained transformers.
+\newblock In \emph{Proceedings of the 60th Annual Meeting of the Association
+  for Computational Linguistics (ACL)}, pages 8493--8502. Association for
+  Computational Linguistics.
+
+\bibitem[{Geva et~al.(2021)Geva, Schuster, Berant, and Levy}]{geva2021}
+Mor Geva, Roei Schuster, Jonathan Berant, and Omer Levy. 2021.
+\newblock Transformer feed-forward layers are key-value memories.
+\newblock In \emph{Proceedings of the 2021 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}, pages 5484--5495. Association for
+  Computational Linguistics.
+
+\bibitem[{Hanna et~al.(2024)Hanna, Liu, and Variengien}]{hanna2024}
+Michael Hanna, Ollie Liu, and Alexandre Variengien. 2024.
+\newblock How does {GPT}-2 compute greater-than?: Interpreting mathematical
+  abilities in a pre-trained language model.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}.
+
+\bibitem[{Meng et~al.(2022)Meng, Bau, Andonian, and Belinkov}]{meng2022}
+Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov. 2022.
+\newblock Locating and editing factual associations in {GPT}.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, volume~35, pages 17359--17372.
+
+\bibitem[{Nanda and Bloom(2022)}]{nanda2022}
+Neel Nanda and Joseph Bloom. 2022.
+\newblock \href {https://github.com/TransformerLensOrg/TransformerLens}
+  {{TransformerLens}}.
+
+\bibitem[{Truong et~al.(2023)Truong, Moissinac, Shelmanov, and
+  Bolshakov}]{truong2023}
+Thinh~Hung Truong, Timothy Moissinac, Artem Shelmanov, and Mikhail Bolshakov.
+  2023.
+\newblock Language models are not naysayers: An analysis of language models on
+  negation benchmarks.
+\newblock In \emph{Proceedings of the 12th Joint Conference on Lexical and
+  Computational Semantics (*SEM)}. Association for Computational Linguistics.
+
+\bibitem[{Vrabcov\'{a} et~al.(2024)}]{vrabcova2024}
+Tereza Vrabcov\'{a} and 1 others. 2024.
+\newblock The pink elephant problem: Measuring and addressing the effect of
+  negation on language model outputs.
+\newblock In \emph{Proceedings of the 2024 Conference on Empirical Methods in
+  Natural Language Processing (EMNLP)}. Association for Computational
+  Linguistics.
+
+\bibitem[{Wang et~al.(2023)Wang, Variengien, Conmy, Shlegeris, and
+  Steinhardt}]{wang2023}
+Kevin Wang, Alexandre Variengien, Arthur Conmy, Buck Shlegeris, and Jacob
+  Steinhardt. 2023.
+\newblock Interpretability in the wild: A circuit for indirect object
+  identification in {GPT}-2 small.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}.
+
+\end{thebibliography}

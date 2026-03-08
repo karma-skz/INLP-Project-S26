@@ -1,0 +1,55 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: mid_submission.aux
+The style file: acl_natbib.bst
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: references.bib
+Warning--entry type for "nanda2022" isn't style-file defined
+--line 58 of file references.bib
+You've used 8 entries,
+            3764 wiz_defined-function locations,
+            775 strings with 7514 characters,
+and the built_in function-call counts, 6391 in all, are:
+= -- 570
+> -- 301
+< -- 6
++ -- 123
+- -- 92
+* -- 399
+:= -- 933
+add.period$ -- 35
+call.type$ -- 8
+change.case$ -- 84
+chr.to.int$ -- 9
+cite$ -- 8
+duplicate$ -- 405
+empty$ -- 451
+format.name$ -- 117
+if$ -- 1403
+int.to.chr$ -- 1
+int.to.str$ -- 2
+missing$ -- 87
+newline$ -- 43
+num.names$ -- 32
+pop$ -- 241
+preamble$ -- 1
+purify$ -- 62
+quote$ -- 0
+skip$ -- 335
+stack$ -- 0
+substring$ -- 218
+swap$ -- 211
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 72
+warning$ -- 0
+while$ -- 33
+width$ -- 0
+write$ -- 105
+(There was 1 warning)
