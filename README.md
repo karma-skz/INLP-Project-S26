@@ -24,24 +24,29 @@ INLP-Project-S26/
 ├── README.md
 ├── requirements.txt
 ├── environment.yml
-├── explanation.md                  # Detailed pipeline walkthrough
 ├── transformerLenstest.py          # Single-prompt exploration (original prototype)
 ├── run_pipeline.py                 # Full dataset pipeline entry point
 ├── results/                        # CSV outputs from benchmark runs
 │   ├── gpt2-small_benchmark.csv
 │   └── all_models_benchmark.csv
 ├── figures/                        # All generated figures
-│   ├── 01_ffn_dla_comparison.png
+│   ├── 01_ffn_dla_comparison.png   # Single-prompt prototype outputs
 │   ├── 02_attn_dla_comparison.png
 │   ├── 03_cumulative_dla_crossover.png
 │   ├── 04_activation_patching.png
 │   ├── 05_sgr.png
-│   ├── sgr_histogram.png
-│   ├── sgr_failure_rate.png
-│   ├── per_layer_dla_mean.png
 │   ├── head_dla_heatmap.png
-│   ├── amplification_sweep.png
-│   └── amplification_failure_rate.png
+│   └── main_output/                # Full-dataset pipeline outputs
+│       ├── sgr_histogram.png
+│       ├── sgr_failure_rate.png
+│       ├── per_layer_dla_mean.png
+│       ├── sgr_model_comparison.png
+│       ├── amplification_sweep.png
+│       └── amplification_failure_rate.png
+├── reports/                        # Mid-submission report
+│   ├── mid_submission.tex
+│   ├── mid_submission.pdf
+│   └── references.bib
 └── src/
     ├── dataset/
     │   └── load_dataset.py         # Loads CounterFact, builds PromptPair objects
@@ -198,17 +203,17 @@ $$\text{SGR} = \frac{|\text{FFN DLA pushing toward target}|}{|\text{Attn DLA pus
 - $\text{SGR} > 1$ → memory overwhelms inhibition → **negation failure**
 - $\text{SGR} < 1$ → inhibition overrides memory → **correct suppression**
 
-Produces: `sgr_histogram.png`, `sgr_failure_rate.png`, `per_layer_dla_mean.png`
+Produces: `figures/main_output/sgr_histogram.png`, `figures/main_output/sgr_failure_rate.png`, `figures/main_output/per_layer_dla_mean.png`, `figures/main_output/sgr_model_comparison.png` (multi-model runs only)
 
 ### Stage 5 — Per-Head Decomposition
 Identifies specific **inhibition heads** — attention heads whose DLA drops most dramatically from the positive to the negated prompt — by computing mean ΔDLA across the dataset.
 
-Produces: `head_dla_heatmap.png`
+Produces: `figures/head_dla_heatmap.png`
 
 ### Stage 6 — Artificial Amplification
 Scales the outputs of the top inhibition heads by 0.5×, 2×, 3×, … and measures whether this reduces the negation failure rate across the dataset.
 
-Produces: `amplification_sweep.png`, `amplification_failure_rate.png`
+Produces: `figures/main_output/amplification_sweep.png`, `figures/main_output/amplification_failure_rate.png`
 
 ### Stage 7 — Statistical Analysis
 - Spearman / point-biserial correlation of SGR with negation failure flag
