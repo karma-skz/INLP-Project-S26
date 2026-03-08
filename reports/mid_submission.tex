@@ -414,8 +414,9 @@ We systematically verified the codebase against every element of the
 original proposal.  Table~\ref{tab:gaps} summarises the status.
 
 \begin{table}[t]
-\centering\small
-\begin{tabular}{@{}p{4.8cm}cp{2.8cm}@{}}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}p{5.2cm}cp{3.2cm}@{}}
 \toprule
 \textbf{Proposal Element} & \textbf{Done?} & \textbf{Location} \\
 \midrule
@@ -436,7 +437,8 @@ Hard negation (``is not'')          & \checkmark & \texttt{load\_dataset.py} \\
 Soft negation (``unlikely to be'')  & Planned    & \\
 Patching in main pipeline           & Planned    & \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \caption{Proposal element coverage.  All core techniques are implemented;
          soft negation and pipeline-integrated patching are planned.}
 \label{tab:gaps}

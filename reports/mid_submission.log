@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.4.7)  8 MAR 2026 21:12
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.4.7)  8 MAR 2026 21:19
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -691,68 +691,73 @@ Underfull \vbox (badness 1990) has occurred while \output is active []
 r_dla_mean.png> <../figures/main_output/sgr_failure_rate.png> <../figures/main_
 output/amplification_sweep.png> <../figures/main_output/amplification_failure_r
 ate.png>]
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 422--423
-[]\T1/pcr/m/n/9 run_benchmark.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 423--424
-[]\T1/pcr/m/n/9 run_benchmark.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 424--425
-[]\T1/pcr/m/n/9 run_benchmark.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 425--426
-[]\T1/pcr/m/n/9 run_benchmark.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 426--427
-[]\T1/pcr/m/n/9 run_benchmark.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (39.13206pt too wide) in paragraph at lines 429--430
-[]\T1/pcr/m/n/9 transformerLenstest.py| 
+Overfull \hbox (53.4911pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 transformerLenstest.py| 
  []
 
 
-Overfull \hbox (6.7321pt too wide) in paragraph at lines 430--431
-[]\T1/pcr/m/n/9 amplification.py| 
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 amplification.py| 
  []
 
 
-Overfull \hbox (1.3321pt too wide) in paragraph at lines 431--432
-[]\T1/pcr/m/n/9 load_dataset.py| 
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 load_dataset.py| 
  []
 
 
-Overfull \hbox (1.3321pt too wide) in paragraph at lines 435--436
-[]\T1/pcr/m/n/9 load_dataset.py| 
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Overfull \hbox (50.15271pt too wide) in paragraph at lines 418--441
- [][] 
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Underfull \hbox (badness 4013) in paragraph at lines 454--455
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 441--441
+[]\T1/pcr/m/n/10.95 load_dataset.py| 
+ []
+
+
+Underfull \hbox (badness 4013) in paragraph at lines 456--457
 []\T1/ptm/m/n/10.95 (+20) Amplification sweep (single-prompt and
  []
 
 
-Underfull \hbox (badness 2065) in paragraph at lines 489--491
+Underfull \hbox (badness 2065) in paragraph at lines 491--493
 []\T1/ptm/b/n/10.95 (+20) Ablation: \T1/ptm/m/n/10.95 (+20) Re-move in-di-vid-u
 al in-hi-bi-tion
  []
 
 
-Overfull \hbox (12.90765pt too wide) in paragraph at lines 496--507
+Overfull \hbox (12.90765pt too wide) in paragraph at lines 498--509
  [][] 
  []
 
@@ -761,27 +766,27 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 
 [5 <../figures/main_output/sgr_model_comparison.png> <../figures/head_dla_heatm
 ap.png>]
-Underfull \hbox (badness 4328) in paragraph at lines 521--523
+Underfull \hbox (badness 4328) in paragraph at lines 523--525
 []\T1/ptm/m/n/10.95 (+20) Hallucinations to oc-cur pre-cisely when
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 532--535
+Underfull \hbox (badness 10000) in paragraph at lines 534--537
 \T1/ptm/m/n/10.95 (+20) The full code-base is avail-able at
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 532--535
+Underfull \hbox (badness 10000) in paragraph at lines 534--537
 [][]$\T1/pcr/m/n/10.95 https : / / github . com / karma-[]skz /
  []
 
 
-Overfull \hbox (10.86359pt too wide) in paragraph at lines 540--540
+Overfull \hbox (10.86359pt too wide) in paragraph at lines 542--542
 []  \T1/pcr/m/n/10.95 --models gpt2-small pythia-160m \[] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 541--543
+Underfull \hbox (badness 10000) in paragraph at lines 543--545
 []\T1/ptm/m/n/10.95 (+20) (Py-Torch, Trans-former-Lens, Hug-ging-Face
  []
 
@@ -800,7 +805,7 @@ Here is how much of TeX's memory you used:
  36636 multiletter control sequences out of 15000+600000
  618818 words of font info for 308 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,10n,93p,1011b,550s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,11n,93p,1011b,550s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texl
@@ -813,7 +818,7 @@ msfonts/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/couri
 er/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><
 /usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on mid_submission.pdf (6 pages, 589358 bytes).
+Output written on mid_submission.pdf (6 pages, 589378 bytes).
 PDF statistics:
  349 PDF objects out of 1000 (max. 8388607)
  298 compressed objects within 3 object streams
