@@ -96,8 +96,11 @@ def load_model(
         fold_ln=fold_ln,
         center_writing_weights=center_writing_weights,
         center_unembed=center_unembed,
-        use_attn_result=True,   # required: populates hook_result for per-head hooks
     )
+    # Enable per-head result hooks (must be set after loading in newer
+    # TransformerLens/transformers versions to avoid leaking into HF loader)
+    model.cfg.use_attn_result = True
+    model.setup()
     model.eval()
 
     if verbose:
