@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.3.5)  8 MAR 2026 21:45
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.3.5)  8 MAR 2026 22:15
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -791,8 +791,14 @@ Underfull \hbox (badness 10000) in paragraph at lines 543--545
  []
 
 (./mid_submission.bbl
-Underfull \hbox (badness 10000) in paragraph at lines 39--43
+Underfull \hbox (badness 10000) in paragraph at lines 37--41
 [][]$\T1/pcr/m/n/10 https : / / github . com / neelnanda-[]io /
+ []
+
+
+Underfull \hbox (badness 1418) in paragraph at lines 59--64
+\T1/ptm/m/n/10 (+20) ob-ject iden-ti-fi-ca-tion in gpt-2 small[][].  \T1/ptm/m/
+it/10 (+20) Preprint\T1/ptm/m/n/10 (+20) ,
  []
 
 ) [6] (./mid_submission.aux)
@@ -804,11 +810,11 @@ Package rerunfilecheck Info: File `mid_submission.out' has not changed.
 (rerunfilecheck)             Checksum: 0F8DEE8AB5B6CA0345D15CFCB4A5698B;5975.
  ) 
 Here is how much of TeX's memory you used:
- 15253 strings out of 476182
- 240221 string characters out of 5795596
+ 15229 strings out of 476182
+ 240008 string characters out of 5795596
  1946975 words of memory out of 5000000
  36638 multiletter control sequences out of 15000+600000
- 619829 words of font info for 316 fonts, out of 8000000 for 9000
+ 618314 words of font info for 300 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,11n,93p,1011b,550s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
@@ -823,10 +829,10 @@ msfonts/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/couri
 er/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><
 /usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on mid_submission.pdf (6 pages, 591862 bytes).
+Output written on mid_submission.pdf (6 pages, 590536 bytes).
 PDF statistics:
- 365 PDF objects out of 1000 (max. 8388607)
- 313 compressed objects within 4 object streams
+ 367 PDF objects out of 1000 (max. 8388607)
+ 315 compressed objects within 4 object streams
  85 named destinations out of 1000 (max. 500000)
  59204 words of extra memory for PDF output out of 61914 (max. 10000000)
 
