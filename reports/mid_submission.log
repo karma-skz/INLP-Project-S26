@@ -623,170 +623,165 @@ Underfull \hbox (badness 1953) in paragraph at lines 280--281
 irs (0
  []
 
-<../figures/main_output/sgr_histogram.png, id=203, 722.7pt x 361.35pt>
+[3]
+<../figures/main_output/sgr_histogram.png, id=222, 722.7pt x 361.35pt>
 File: ../figures/main_output/sgr_histogram.png Graphic file (type png)
 <use ../figures/main_output/sgr_histogram.png>
 Package pdftex.def Info: ../figures/main_output/sgr_histogram.png  used on inpu
-t line 316.
+t line 326.
 (pdftex.def)             Requested size: 219.08614pt x 109.54166pt.
-[3]
-<../figures/main_output/per_layer_dla_mean.png, id=224, 1011.78pt x 505.89pt>
+<../figures/main_output/per_layer_dla_mean.png, id=225, 1011.78pt x 505.89pt>
 File: ../figures/main_output/per_layer_dla_mean.png Graphic file (type png)
 <use ../figures/main_output/per_layer_dla_mean.png>
 Package pdftex.def Info: ../figures/main_output/per_layer_dla_mean.png  used on
- input line 333.
+ input line 346.
 (pdftex.def)             Requested size: 219.08614pt x 109.54387pt.
-<../figures/main_output/sgr_failure_rate.png, id=226, 650.43pt x 361.35pt>
+<../figures/main_output/sgr_failure_rate.png, id=227, 650.43pt x 361.35pt>
 File: ../figures/main_output/sgr_failure_rate.png Graphic file (type png)
 <use ../figures/main_output/sgr_failure_rate.png>
 Package pdftex.def Info: ../figures/main_output/sgr_failure_rate.png  used on i
-nput line 347.
+nput line 360.
 (pdftex.def)             Requested size: 219.08614pt x 121.71051pt.
-<../figures/main_output/amplification_sweep.png, id=228, 939.51pt x 361.35pt>
+<../figures/main_output/amplification_sweep.png, id=229, 939.51pt x 361.35pt>
 File: ../figures/main_output/amplification_sweep.png Graphic file (type png)
 <use ../figures/main_output/amplification_sweep.png>
 Package pdftex.def Info: ../figures/main_output/amplification_sweep.png  used o
-n input line 364.
+n input line 382.
 (pdftex.def)             Requested size: 107.35341pt x 41.28696pt.
-<../figures/main_output/amplification_failure_rate.png, id=229, 578.16pt x 361.
+<../figures/main_output/amplification_failure_rate.png, id=230, 578.16pt x 361.
 35pt>
 File: ../figures/main_output/amplification_failure_rate.png Graphic file (type 
 png)
 <use ../figures/main_output/amplification_failure_rate.png>
 Package pdftex.def Info: ../figures/main_output/amplification_failure_rate.png 
- used on input line 365.
+ used on input line 383.
 (pdftex.def)             Requested size: 107.35341pt x 67.09131pt.
-<../figures/main_output/sgr_model_comparison.png, id=231, 867.24pt x 361.35pt>
+ [4 <../figures/main_output/sgr_histogram.png> <../figures/main_output/per_laye
+r_dla_mean.png> <../figures/main_output/sgr_failure_rate.png> <../figures/main_
+output/amplification_sweep.png> <../figures/main_output/amplification_failure_r
+ate.png>]
+<../figures/main_output/sgr_model_comparison.png, id=245, 867.24pt x 361.35pt>
 File: ../figures/main_output/sgr_model_comparison.png Graphic file (type png)
 <use ../figures/main_output/sgr_model_comparison.png>
 Package pdftex.def Info: ../figures/main_output/sgr_model_comparison.png  used 
-on input line 379.
+on input line 406.
 (pdftex.def)             Requested size: 219.08614pt x 91.28564pt.
-<../figures/head_dla_heatmap.png, id=233, 1300.86pt x 361.35pt>
+<../figures/head_dla_heatmap.png, id=247, 1300.86pt x 361.35pt>
 File: ../figures/head_dla_heatmap.png Graphic file (type png)
 <use ../figures/head_dla_heatmap.png>
-Package pdftex.def Info: ../figures/head_dla_heatmap.png  used on input line 39
-3.
+Package pdftex.def Info: ../figures/head_dla_heatmap.png  used on input line 42
+0.
 (pdftex.def)             Requested size: 219.08614pt x 60.85526pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 401--407
+Underfull \hbox (badness 10000) in paragraph at lines 428--434
 \T1/ptm/m/n/10.95 (+20) Activation patch-ing ex-per-i-ments (re-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 401--407
+Underfull \hbox (badness 10000) in paragraph at lines 428--434
 \T1/ptm/m/n/10.95 (+20) ported in our ex-ploratory script
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 401--407
+Underfull \hbox (badness 10000) in paragraph at lines 428--434
 [][]\T1/pcr/m/n/10.95 transformerLenstest.py[]\T1/ptm/m/n/10.95 (+20) ) con-fir
 med
  []
 
 
-Underfull \vbox (badness 1990) has occurred while \output is active []
-
- [4 <../figures/main_output/sgr_histogram.png> <../figures/main_output/per_laye
-r_dla_mean.png> <../figures/main_output/sgr_failure_rate.png> <../figures/main_
-output/amplification_sweep.png> <../figures/main_output/amplification_failure_r
-ate.png>]
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 run_benchmark.py| 
  []
 
 
-Overfull \hbox (53.4911pt too wide) in paragraph at lines 441--441
+Overfull \hbox (53.4911pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 transformerLenstest.py| 
  []
 
 
-Overfull \hbox (14.07115pt too wide) in paragraph at lines 441--441
+Overfull \hbox (14.07115pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 amplification.py| 
  []
 
 
-Overfull \hbox (7.50116pt too wide) in paragraph at lines 441--441
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 load_dataset.py| 
  []
 
 
-Overfull \hbox (0.93117pt too wide) in paragraph at lines 441--441
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Overfull \hbox (0.93117pt too wide) in paragraph at lines 441--441
+Overfull \hbox (0.93117pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 load_models.py| 
  []
 
 
-Overfull \hbox (7.50116pt too wide) in paragraph at lines 441--441
+Overfull \hbox (7.50116pt too wide) in paragraph at lines 468--468
 []\T1/pcr/m/n/10.95 load_dataset.py| 
  []
 
 
-Underfull \hbox (badness 4013) in paragraph at lines 456--457
+Underfull \hbox (badness 4013) in paragraph at lines 483--484
 []\T1/ptm/m/n/10.95 (+20) Amplification sweep (single-prompt and
  []
 
-
-Underfull \hbox (badness 2065) in paragraph at lines 491--493
+[5 <../figures/main_output/sgr_model_comparison.png> <../figures/head_dla_heatm
+ap.png>]
+Underfull \hbox (badness 2065) in paragraph at lines 518--520
 []\T1/ptm/b/n/10.95 (+20) Ablation: \T1/ptm/m/n/10.95 (+20) Re-move in-di-vid-u
 al in-hi-bi-tion
  []
 
 
-Overfull \hbox (12.90765pt too wide) in paragraph at lines 498--509
+Overfull \hbox (12.90765pt too wide) in paragraph at lines 525--536
  [][] 
  []
 
 
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-[5 <../figures/main_output/sgr_model_comparison.png> <../figures/head_dla_heatm
-ap.png>]
-Underfull \hbox (badness 4328) in paragraph at lines 523--525
+Underfull \hbox (badness 4328) in paragraph at lines 550--552
 []\T1/ptm/m/n/10.95 (+20) Hallucinations to oc-cur pre-cisely when
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 534--537
+Underfull \hbox (badness 10000) in paragraph at lines 561--564
 \T1/ptm/m/n/10.95 (+20) The full code-base is avail-able at
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 534--537
+Underfull \hbox (badness 10000) in paragraph at lines 561--564
 [][]$\T1/pcr/m/n/10.95 https : / / github . com / karma-[]skz /
  []
 
 
-Overfull \hbox (10.86359pt too wide) in paragraph at lines 542--542
+Overfull \hbox (10.86359pt too wide) in paragraph at lines 569--569
 []  \T1/pcr/m/n/10.95 --models gpt2-small pythia-160m \[] 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 543--545
+Underfull \hbox (badness 10000) in paragraph at lines 570--572
 []\T1/ptm/m/n/10.95 (+20) (Py-Torch, Trans-former-Lens, Hug-ging-Face
  []
 
@@ -806,6 +801,10 @@ it/10 (+20) Preprint\T1/ptm/m/n/10 (+20) ,
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
 Package rerunfilecheck Info: File `mid_submission.out' has not changed.
 (rerunfilecheck)             Checksum: 0F8DEE8AB5B6CA0345D15CFCB4A5698B;5975.
  ) 
@@ -816,7 +815,7 @@ Here is how much of TeX's memory you used:
  36638 multiletter control sequences out of 15000+600000
  618314 words of font info for 300 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,11n,93p,1011b,550s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 90i,11n,93p,1011b,591s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texl

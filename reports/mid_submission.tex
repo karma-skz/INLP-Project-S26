@@ -290,32 +290,45 @@ The full pipeline completed successfully on both models:
 \textbf{Metric} & \textbf{GPT-2 Small} & \textbf{Pythia-160M} \\
 \midrule
 Prompt pairs           & 21,919 & 19,562 \\
-Negation failure rate  & 11.4\% & TBD    \\
-Mean SGR (finite)      & 244.6  & TBD    \\
+Negation failure rate  & 11.4\% & 12.4\% \\
+Mean SGR (finite)      & 244.6  & 23.3   \\
+Median SGR             & 27.1   & 7.7    \\
+SGR\,$>$\,1 rate (all) & 58.0\% & 99.3\% \\
 \bottomrule
 \end{tabular}
-\caption{Behavioural summary across models.  Pythia values will be
-         filled once the analysis is complete.}
+\caption{Behavioural summary across models.}
 \label{tab:results}
 \end{table}
 
-The GPT-2 Small negation failure rate of 11.4\% confirms that the model
-fails to suppress the factual target in a non-trivial fraction of cases.
-The mean SGR of 244.6 (dominated by tail cases with very weak inhibition)
-indicates that for a large number of prompts, the FFN retrieval signal
-vastly exceeds the attention-mediated suppression signal.
+GPT-2 Small exhibits an 11.4\% negation failure rate, and Pythia-160M a
+slightly higher 12.4\% (z\,=\,$-$3.27, p\,=\,0.001).  GPT-2's mean SGR
+of 244.6 is dominated by tail cases with very weak inhibition; the median
+(27.1) gives a more representative picture.  Pythia-160M has a much lower
+mean SGR of 23.3 (median 7.7), indicating its inhibition circuit is
+generally stronger in absolute terms, even though its failure rate is
+marginally higher.
 
 \subsection{SGR Distribution}
 Figure~\ref{fig:sgrhist} shows the SGR distribution, colour-coded by
-whether negation failed.  The distribution is heavily right-skewed: most
-samples have SGR well above 1, consistent with our hypothesis that
-retrieval generally dominates inhibition.
+whether negation failed.  Both distributions are heavily right-skewed.
+For GPT-2 Small, 58.0\% of all samples have SGR\,$>$\,1, while for
+Pythia-160M the figure rises to 99.3\%.  Importantly, SGR\,$>$\,1 is a
+\emph{necessary} but not \emph{sufficient} condition for negation failure:
+many prompts with SGR\,$>$\,1 are still suppressed correctly, suggesting
+that additional circuit-level factors (e.g.\ the absolute magnitude of
+inhibition, or the presence of multiple suppression heads acting in
+concert) modulate the final outcome.  Among failure cases specifically,
+99.1\% of GPT-2 failures and 100\% of Pythia failures have SGR\,$>$\,1,
+strongly supporting the diagnostic value of the metric.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{../figures/main_output/sgr_histogram.png}
   \caption{SGR distribution across CounterFact samples.  Hatched bars
-           indicate negation failures.  The dashed line marks SGR\,=\,1.}
+           indicate negation failures.  The dashed line marks SGR\,=\,1.
+           Note: the ``SGR\,$>$\,1 rate'' annotated in the figure refers
+           to the fraction of \emph{failure} cases with SGR\,$>$\,1,
+           not the overall population rate.}
   \label{fig:sgrhist}
 \end{figure}
 
@@ -353,11 +366,16 @@ predictor of negation failure.
 \subsection{Amplification Experiments}
 Figure~\ref{fig:amp} shows the results of artificially scaling the
 output of the top-10 Inhibition Heads.  On the left, the single-prompt
-sweep demonstrates that increasing the scale factor causes the target
-logit on the negated prompt to \emph{decrease} (more suppression), while
-the positive prompt remains relatively stable.  On the right, the
-dataset-level experiment shows how the negation failure rate drops as
-the amplification scale increases.
+sweep shows that increasing the scale factor narrows the gap between
+the positive and negated prompt logits: the logit on the negated prompt
+does not fall uniformly, but the \emph{retrieval--inhibition gap}
+($\mathrm{logit}_{\mathrm{neg}} - \mathrm{logit}_{\mathrm{pos}}$) closes
+systematically as $\alpha$ increases from 0.5 to 4, indicating that
+inhibition is gaining ground against retrieval.  On the right, the
+dataset-level experiment confirms that the negation failure rate
+drops from 12.0\% at $\alpha=1$ (baseline) to 6.0\% at $\alpha=4$,
+providing causal evidence that the identified heads are genuine
+Inhibition Heads.
 
 \begin{figure}[t]
   \centering
@@ -371,8 +389,17 @@ the amplification scale increases.
 
 \subsection{Cross-Model Comparison}
 Figure~\ref{fig:modelcomp} compares SGR distributions and failure rates
-between GPT-2 Small and Pythia-160M, enabling us to test whether the
-Competitive Gating Hypothesis generalises across architectures.
+between GPT-2 Small and Pythia-160M.  Despite having a substantially
+lower mean SGR (23.3 vs.\ 244.6), Pythia-160M has a marginally
+\emph{higher} failure rate (12.4\% vs.\ 11.4\%, z\,=\,$-$3.27,
+p\,=\,0.001).  This reveals an important nuance: the absolute magnitude
+of SGR is not the sole predictor of failure; the shape of the inhibition
+distribution matters.  Pythia has 99.3\% of samples at SGR\,$>$\,1
+vs.\ GPT-2's 58.0\%, meaning Pythia has very few samples where
+inhibition convincingly dominates.  Both models show significant
+Spearman correlation between SGR and failure (r\,=\,0.15 for GPT-2,
+r\,=\,0.11 for Pythia, both p\,$<$\,$10^{-50}$), supporting the
+Competitive Gating Hypothesis across architectures.
 
 \begin{figure}[t]
   \centering
@@ -535,7 +562,7 @@ The full codebase is available at
 \url{https://github.com/karma-skz/INLP-Project-S26}.
 To reproduce:
 \begin{verbatim}
-source inlp/bin/activate
+conda activate inlp-project
 python run_pipeline.py \
   --models gpt2-small pythia-160m \
   --max_samples 200
