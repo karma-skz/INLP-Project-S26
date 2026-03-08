@@ -180,21 +180,19 @@ attention suppress it?''
 
 \subsection{Signal-to-Gate Ratio (SGR)}
 \label{sec:sgr}
-For a negated prompt we define
+For a negated prompt we define the SGR as the ratio of total positive
+FFN (retrieval) DLA to total negative Attention (inhibition) DLA:
 \begin{equation}
 \mathrm{SGR}
-= \frac
-  {\displaystyle\sum_{\ell \in \mathrm{FFN}} [\mathrm{DLA}_\ell]_+}
-  {\displaystyle\sum_{h \in \mathrm{Attn}} \bigl|[\mathrm{DLA}_h]_-\bigr|}
+= \frac{\sum_{\ell \in \mathrm{FFN}} [\mathrm{DLA}_\ell]_+}
+       {\sum_{h \in \mathrm{Attn}} |[\mathrm{DLA}_h]_-|}
 \label{eq:sgr}
 \end{equation}
-where $[\cdot]_+$ keeps only positive (retrieval) contributions from FFNs
-and $[\cdot]_-$ keeps negative (inhibitory) contributions from attention
-heads.
-\begin{itemize}
-\item $\mathrm{SGR} > 1$: retrieval overwhelms inhibition $\Rightarrow$ \textbf{hallucination}.
-\item $\mathrm{SGR} < 1$: inhibition wins $\Rightarrow$ \textbf{correct suppression}.
-\end{itemize}
+where $[\cdot]_+$ retains only positive (retrieval) contributions from FFNs
+and $[\cdot]_-$ retains only negative (inhibitory) contributions from
+attention heads.  When $\mathrm{SGR} > 1$ retrieval overwhelms inhibition
+and the model is predicted to hallucinate; when $\mathrm{SGR} < 1$
+inhibition wins and negation succeeds.
 
 \subsection{Per-Head DLA and Inhibition Head Identification}
 We decompose attention DLA to the individual \emph{head} level using
@@ -249,7 +247,7 @@ Our codebase is organised as follows:
 \texttt{per\_head.py}       & Per-head DLA \\
 \texttt{amplification.py}   & Head amplification \\
 \texttt{metrics.py}         & Statistical tests \\
-\texttt{run\_pipeline.py}   & Orchestrator (Stages 1--7) \\
+\texttt{run\_pipeline.py}   & Orchestrator \\
 \bottomrule
 \end{tabular}
 \caption{Codebase structure.}
@@ -381,11 +379,11 @@ Inhibition Heads.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.49\linewidth]{../figures/main_output/amplification_sweep.png}
-  \includegraphics[width=0.49\linewidth]{../figures/main_output/amplification_failure_rate.png}
-  \caption{Left: target logit vs.\ inhibition head amplification scale
+  \includegraphics[width=\linewidth]{../figures/main_output/amplification_sweep.png}
+  \includegraphics[width=\linewidth]{../figures/main_output/amplification_failure_rate.png}
+  \caption{Top: target logit vs.\ inhibition head amplification scale
            (single prompt).
-           Right: dataset-level negation failure rate vs.\ scale.}
+           Bottom: dataset-level negation failure rate vs.\ scale.}
   \label{fig:amp}
 \end{figure}
 
