@@ -71,7 +71,7 @@
       url={https://arxiv.org/abs/2503.22395}, 
 }
 
-@misc{wang2023interpretability,
+@misc{wang2022interpretabilitywildcircuitindirect,
       title={Interpretability in the Wild: a Circuit for Indirect Object Identification in GPT-2 small}, 
       author={Kevin Wang and Alexandre Variengien and Arthur Conmy and Buck Shlegeris and Jacob Steinhardt},
       year={2022},
@@ -79,4 +79,24 @@
       archivePrefix={arXiv},
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2211.00593}, 
+}
+
+@inproceedings{geva-etal-2022-transformer,
+    title = "Transformer Feed-Forward Layers Build Predictions by Promoting Concepts in the Vocabulary Space",
+    author = "Geva, Mor  and
+      Caciularu, Avi  and
+      Wang, Kevin  and
+      Goldberg, Yoav",
+    editor = "Goldberg, Yoav  and
+      Kozareva, Zornitsa  and
+      Zhang, Yue",
+    booktitle = "Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing",
+    month = dec,
+    year = "2022",
+    address = "Abu Dhabi, United Arab Emirates",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2022.emnlp-main.3/",
+    doi = "10.18653/v1/2022.emnlp-main.3",
+    pages = "30--45",
+    abstract = "Transformer-based language models (LMs) are at the core of modern NLP, but their internal prediction construction process is opaque and largely not understood. In this work, we make a substantial step towards unveiling this underlying prediction process, by reverse-engineering the operation of the feed-forward network (FFN) layers, one of the building blocks of transformer models. We view the token representation as a changing distribution over the vocabulary, and the output from each FFN layer as an additive update to that distribution. Then, we analyze the FFN updates in the vocabulary space, showing that each update can be decomposed to sub-updates corresponding to single FFN parameter vectors, each promoting concepts that are often human-interpretable. We then leverage these findings for controlling LM predictions, where we reduce the toxicity of GPT2 by almost 50{\%}, and for improving computation efficiency with a simple early exit rule, saving 20{\%} of computation on average."
 }

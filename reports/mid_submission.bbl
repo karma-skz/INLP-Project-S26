@@ -1,4 +1,4 @@
-\begin{thebibliography}{8}
+\begin{thebibliography}{7}
 \providecommand{\natexlab}[1]{#1}
 
 \bibitem[{Dai et~al.(2022)Dai, Dong, Hao, Sui, Chang, and
@@ -18,13 +18,6 @@ Mor Geva, Roei Schuster, Jonathan Berant, and Omer Levy. 2021.
 \newblock In \emph{Proceedings of the 2021 Conference on Empirical Methods in
   Natural Language Processing}, pages 5484--5495, Online and Punta Cana,
   Dominican Republic. Association for Computational Linguistics.
-
-\bibitem[{Hanna et~al.(2023)Hanna, Liu, and Variengien}]{hanna2024gpt2}
-Michael Hanna, Ollie Liu, and Alexandre Variengien. 2023.
-\newblock \href {https://arxiv.org/abs/2305.00586} {How does gpt-2 compute
-  greater-than?: Interpreting mathematical abilities in a pre-trained language
-  model}.
-\newblock \emph{Preprint}, arXiv:2305.00586.
 
 \bibitem[{Meng et~al.(2023)Meng, Bau, Andonian, and
   Belinkov}]{meng-etal-2022-locating}
@@ -55,7 +48,7 @@ Tereza Vrabcová, Marek Kadlčík, Petr Sojka, Michal Štefánik, and Michal
 \newblock \emph{Preprint}, arXiv:2503.22395.
 
 \bibitem[{Wang et~al.(2022)Wang, Variengien, Conmy, Shlegeris, and
-  Steinhardt}]{wang2023interpretability}
+  Steinhardt}]{wang2022interpretabilitywildcircuitindirect}
 Kevin Wang, Alexandre Variengien, Arthur Conmy, Buck Shlegeris, and Jacob
   Steinhardt. 2022.
 \newblock \href {https://arxiv.org/abs/2211.00593} {Interpretability in the

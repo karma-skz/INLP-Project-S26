@@ -91,11 +91,13 @@ Mid-to-late FFN layers serve as ``attribute extractors,'' injecting entity
 data into the residual stream \emph{independently} of logical structure.
 
 \subsection{Finding the ``Off Switch''}
-Wang et al.\ \shortcite{wang2023interpretability} established the framework for identifying
-\emph{circuits}---subsets of model components responsible for specific
-behaviours.  Hanna et al.\ \shortcite{hanna2024gpt2} identified
-\textbf{Inhibition Heads}: attention heads that attend to logical modifiers
-and decrease the probability of the forbidden token.
+Wang et al.\ \shortcite{wang2022interpretabilitywildcircuitindirect}
+established a framework for identifying \emph{circuits}—subsets of model
+components responsible for specific behaviours. Their analysis of the
+Indirect Object Identification (IOI) task revealed several functional
+classes of attention heads, including \textbf{inhibitory heads} that
+suppress competing tokens and redirect probability mass toward the
+correct completion.
 
 \subsection{Failures of Negation}
 LLMs frequently behave as if they are ``logic-blind.''

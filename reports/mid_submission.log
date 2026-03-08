@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.3.5)  8 MAR 2026 22:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.3.5)  8 MAR 2026 22:25
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -557,68 +557,68 @@ Package microtype Info: Loading generic protrusion settings for font family
 
 
 ]
-Underfull \hbox (badness 10000) in paragraph at lines 132--136
+Underfull \hbox (badness 10000) in paragraph at lines 134--138
 \T1/ptm/m/n/10.95 (+20) Each layer's MLP is $[]\OT1/cmr/m/n/10.95 (\OT1/cmr/bx/
 n/10.95 x\OT1/cmr/m/n/10.95 ) =
  []
 
 
-Underfull \hbox (badness 7433) in paragraph at lines 132--136
+Underfull \hbox (badness 7433) in paragraph at lines 134--138
 \OT1/cmr/bx/n/10.95 W[] []\OT1/cmr/m/n/10.95 (\OT1/cmr/bx/n/10.95 W[]x\OT1/cmr/
 m/n/10.95 )$\T1/ptm/m/n/10.95 (+20) . A key in-ter-pretabil-ity
  []
 
 
-Underfull \hbox (badness 1789) in paragraph at lines 132--136
+Underfull \hbox (badness 1789) in paragraph at lines 134--138
 \T1/ptm/m/n/10.95 (+20) stores ([][]Geva et al.[][], [][]2021[][]): mid-layer F
 FNs
  []
 
 LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 1
-37.
+39.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
 )
-Underfull \hbox (badness 1502) in paragraph at lines 162--166
+Underfull \hbox (badness 1502) in paragraph at lines 164--168
 []\T1/ptm/b/n/10.95 (+20) Tokenisation caveat. \T1/ptm/m/n/10.95 (+20) GPT-2 / 
 Pythia to-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 198--206
+Underfull \hbox (badness 10000) in paragraph at lines 200--208
 \T1/ptm/m/n/10.95 (+20) We de-com-pose at-ten-tion DLA to
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 198--206
+Underfull \hbox (badness 10000) in paragraph at lines 200--208
 \T1/ptm/m/n/10.95 (+20) the in-di-vid-ual \T1/ptm/m/it/10.95 (+20) head \T1/ptm
 /m/n/10.95 (+20) level us-ing
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 198--206
+Underfull \hbox (badness 10000) in paragraph at lines 200--208
 [][]\T1/pcr/m/n/10.95 cache.stack_head_results()[]\T1/ptm/m/n/10.95 (+20) . For
 
  []
 
-
-Underfull \hbox (badness 2080) in paragraph at lines 212--214
+[2]
+Underfull \hbox (badness 2080) in paragraph at lines 214--216
 []\T1/ptm/m/n/10.95 (+20) Run the \T1/ptm/b/n/10.95 (+20) pos-i-tive \T1/ptm/m/
 n/10.95 (+20) prompt and cache all
  []
 
-[2]
-Underfull \hbox (badness 10000) in paragraph at lines 260--261
+
+Underfull \hbox (badness 10000) in paragraph at lines 262--263
 []\T1/ptm/m/n/10.95 (+20) Runs both through the model with
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 261--262
+Underfull \hbox (badness 10000) in paragraph at lines 263--264
 []\T1/ptm/m/n/10.95 (+20) Decomposes the resid-ual stream via
  []
 
 
-Underfull \hbox (badness 1953) in paragraph at lines 280--281
+Underfull \hbox (badness 1953) in paragraph at lines 282--283
 []\T1/ptm/b/n/10.95 (+20) GPT-2 Small: \T1/ptm/m/n/10.95 (+20) 21,919 prompt pa
 irs (0
  []
@@ -786,12 +786,12 @@ Underfull \hbox (badness 10000) in paragraph at lines 570--572
  []
 
 (./mid_submission.bbl
-Underfull \hbox (badness 10000) in paragraph at lines 37--41
+Underfull \hbox (badness 10000) in paragraph at lines 30--34
 [][]$\T1/pcr/m/n/10 https : / / github . com / neelnanda-[]io /
  []
 
 
-Underfull \hbox (badness 1418) in paragraph at lines 59--64
+Underfull \hbox (badness 1418) in paragraph at lines 52--57
 \T1/ptm/m/n/10 (+20) ob-ject iden-ti-fi-ca-tion in gpt-2 small[][].  \T1/ptm/m/
 it/10 (+20) Preprint\T1/ptm/m/n/10 (+20) ,
  []
@@ -809,11 +809,11 @@ Package rerunfilecheck Info: File `mid_submission.out' has not changed.
 (rerunfilecheck)             Checksum: 0F8DEE8AB5B6CA0345D15CFCB4A5698B;5975.
  ) 
 Here is how much of TeX's memory you used:
- 15229 strings out of 476182
- 240008 string characters out of 5795596
+ 15225 strings out of 476182
+ 240006 string characters out of 5795596
  1946975 words of memory out of 5000000
- 36638 multiletter control sequences out of 15000+600000
- 618314 words of font info for 300 fonts, out of 8000000 for 9000
+ 36635 multiletter control sequences out of 15000+600000
+ 618311 words of font info for 300 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,11n,93p,1011b,591s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
@@ -828,10 +828,10 @@ msfonts/symbols/msam10.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/couri
 er/ucrr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><
 /usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texl
 ive/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on mid_submission.pdf (6 pages, 590536 bytes).
+Output written on mid_submission.pdf (6 pages, 590357 bytes).
 PDF statistics:
- 367 PDF objects out of 1000 (max. 8388607)
- 315 compressed objects within 4 object streams
- 85 named destinations out of 1000 (max. 500000)
+ 361 PDF objects out of 1000 (max. 8388607)
+ 309 compressed objects within 4 object streams
+ 84 named destinations out of 1000 (max. 500000)
  59204 words of extra memory for PDF output out of 61914 (max. 10000000)
 
