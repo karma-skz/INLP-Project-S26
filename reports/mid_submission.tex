@@ -59,7 +59,7 @@ that high-probability output.
 
 Behavioural studies liken this to the psychological ``Pink Elephant'' effect,
 or \emph{ironic process theory}: the instruction to avoid a concept
-paradoxically increases its activation \cite{vrabcova2024}.  However, we
+paradoxically increases its activation \cite{vrabcova-etal-2024-pink}.  However, we
 still do not fully understand how neural networks \emph{physically}
 implement this conflict.
 
@@ -85,22 +85,22 @@ Our contributions are:
 % =================================================================
 
 \subsection{Memory vs.\ Logic}
-Geva et al.\ \shortcite{geva2021} and Dai et al.\ \shortcite{dai2022}
+Geva et al.\ \shortcite{geva-etal-2021-transformer} and Dai et al.\ \shortcite{dai-etal-2022-knowledge}
 show that Feed-Forward Networks (FFNs) act as key--value memory stores.
 Mid-to-late FFN layers serve as ``attribute extractors,'' injecting entity
 data into the residual stream \emph{independently} of logical structure.
 
 \subsection{Finding the ``Off Switch''}
-Wang et al.\ \shortcite{wang2023} established the framework for identifying
-\emph{circuits}, subsets of model components responsible for specific
-behaviours.  Hanna et al.\ \shortcite{hanna2024} identified
+Wang et al.\ \shortcite{wang2023interpretability} established the framework for identifying
+\emph{circuits}---subsets of model components responsible for specific
+behaviours.  Hanna et al.\ \shortcite{hanna2024gpt2} identified
 \textbf{Inhibition Heads}: attention heads that attend to logical modifiers
 and decrease the probability of the forbidden token.
 
 \subsection{Failures of Negation}
 LLMs frequently behave as if they are ``logic-blind.''
-Truong et al.\ \shortcite{truong2023} showed that scaling up model size
-does not fix negation failures.  Vrabcov\'{a} et al.\ \shortcite{vrabcova2024}
+Truong et al.\ \shortcite{truong-etal-2023-language} showed that scaling up model size
+does not fix negation failures.  Vrabcov\'{a} et al.\ \shortcite{vrabcova-etal-2024-pink}
 demonstrated that mentioning a concept in a negative context makes it
 statistically \emph{harder} for the model to generate diverse alternatives.
 
@@ -131,7 +131,7 @@ others copy factual information forward.  Attention is
 \subsection{Feed-Forward Networks}
 Each layer's MLP is $\mathrm{FFN}(\mathbf{x}) = \mathbf{W}_2 \,
 \mathrm{GELU}(\mathbf{W}_1 \mathbf{x})$.  A key interpretability insight
-is that FFNs behave like key--value memory stores \cite{geva2021}: mid-layer
+is that FFNs behave like key--value memory stores \cite{geva-etal-2021-transformer}: mid-layer
 FFNs strongly store entity--attribute associations.  In our framework:
 \begin{itemize}
 \item FFNs $=$ \textbf{memory retrieval},
@@ -146,8 +146,8 @@ FFNs strongly store entity--attribute associations.  In our framework:
 \subsection{Models and Data}
 We act as ``neuroscientists'' for \textbf{GPT-2 Small}
 (12 layers, 12 heads, 768-dim) and \textbf{Pythia-160M}
-(12 layers, 12 heads, 768-dim) using TransformerLens \cite{nanda2022}.
-We use the \textbf{CounterFact} dataset \cite{meng2022}, a benchmark of
+(12 layers, 12 heads, 768-dim) using TransformerLens \cite{nanda2022transformerlens}.
+We use the \textbf{CounterFact} dataset \cite{meng-etal-2022-locating}, a benchmark of
 counterfactual scenarios.  Each entry provides a prompt (e.g., ``The mother
 tongue of Danielle Darrieux is'') and a target token (e.g., ``French'').
 
