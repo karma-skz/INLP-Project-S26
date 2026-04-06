@@ -31,16 +31,22 @@ SUPPORTED_MODELS: dict[str, str] = {
     # short alias  →  TransformerLens model name
     "gpt2-small":  "gpt2-small",
     "gpt2":        "gpt2-small",          # convenience alias
+    "gpt2-medium": "gpt2-medium",
+    "gpt2-large":  "gpt2-large",
     "pythia-160m": "pythia-160m",
     "pythia":      "pythia-160m",         # convenience alias
+    "pythia-410m": "EleutherAI/pythia-410m",
 }
 
 # Canonical short names (used as keys in results dictionaries)
 MODEL_SHORTNAMES: dict[str, str] = {
     "gpt2-small":  "gpt2-small",
     "gpt2":        "gpt2-small",
+    "gpt2-medium": "gpt2-medium",
+    "gpt2-large":  "gpt2-large",
     "pythia-160m": "pythia-160m",
     "pythia":      "pythia-160m",
+    "pythia-410m": "pythia-410m",
 }
 
 

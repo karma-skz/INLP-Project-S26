@@ -57,9 +57,9 @@ def _ensure_leading_space(token: str) -> str:
     return token
 
 
-def _build_negated_prompt(positive_prompt: str) -> str:
+def _build_negated_prompt(positive_prompt: str, negator_suffix: str = " not") -> str:
     """
-    Append ' not' to the positive prompt.
+    Append ``negator_suffix`` to the positive prompt.
 
     The positive prompts in CounterFact already end with a verb / copula
     (e.g., "is", "was born in"), so appending " not" produces a grammatical
@@ -74,7 +74,7 @@ def _build_negated_prompt(positive_prompt: str) -> str:
     after the negation token, not evaluating grammaticality).
     """
     # Strip trailing whitespace so we don't double-space
-    return positive_prompt.rstrip() + " not"
+    return positive_prompt.rstrip() + negator_suffix
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +86,7 @@ def load_counterfact(
     max_samples: Optional[int] = None,
     skip_multi_token_targets: bool = True,
     model=None,                       # optional HookedTransformer, used to validate tokens
+    negator_suffix: str = " not",     # suffix appended to build negated prompt
     verbose: bool = True,
 ) -> List[PromptPair]:
     """
@@ -159,7 +160,7 @@ def load_counterfact(
                 skipped_multi += 1
                 continue
 
-        negated_prompt = _build_negated_prompt(positive_prompt)
+        negated_prompt = _build_negated_prompt(positive_prompt, negator_suffix=negator_suffix)
 
         pairs.append(
             PromptPair(
@@ -191,6 +192,7 @@ def stream_counterfact(
     max_samples: Optional[int] = None,
     model=None,
     skip_multi_token_targets: bool = True,
+    negator_suffix: str = " not",
 ) -> Iterator[PromptPair]:
     """
     Streaming version of :func:`load_counterfact` — yields one
@@ -233,7 +235,7 @@ def stream_counterfact(
             case_id=case_id,
             subject=subject,
             positive_prompt=positive_prompt,
-            negated_prompt=_build_negated_prompt(positive_prompt),
+            negated_prompt=_build_negated_prompt(positive_prompt, negator_suffix=negator_suffix),
             target_token=target_token,
             target_false=target_false,
         )

@@ -21,6 +21,9 @@ Usage
     # Full run — both models, all samples
     python run_pipeline.py --models gpt2-small pythia-160m --max_samples -1
 
+    # Soft Negation Sweep — Test different soft negator types
+    python run_pipeline.py --negator_suffix " not" " unlikely to be" " rarely"
+
     # Skip heavy stages
     python run_pipeline.py --skip_patching --skip_amplification
 """
@@ -52,8 +55,11 @@ def parse_args():
     p = argparse.ArgumentParser(description="Pink Elephants — full pipeline")
     p.add_argument("--models", nargs="+",
                    default=["gpt2-small"],
-                   choices=["gpt2-small", "gpt2", "pythia-160m", "pythia"],
+                   choices=["gpt2-small", "gpt2", "gpt2-medium", "gpt2-large", "pythia-160m", "pythia", "pythia-410m"],
                    help="Models to benchmark (default: gpt2-small)")
+    p.add_argument("--negator_suffix", nargs="+",
+                   default=[" not"],
+                   help="Suffer prefixes indicating soft negation (e.g. ' not' or ' rarely')")
     p.add_argument("--max_samples", type=int, default=200,
                    help="Max CounterFact samples per model (-1 = all, default: 200)")
     p.add_argument("--results_dir", default="results",
@@ -78,7 +84,13 @@ def parse_args():
 
 def _model_shortname(name: str) -> str:
     """Normalise 'gpt2' → 'gpt2-small', etc."""
-    mapping = {"gpt2": "gpt2-small", "pythia": "pythia-160m"}
+    mapping = {
+        "gpt2": "gpt2-small", 
+        "pythia": "pythia-160m", 
+        "gpt2-medium": "gpt2-medium", 
+        "gpt2-large": "gpt2-large", 
+        "pythia-410m": "pythia-410m"
+    }
     return mapping.get(name, name)
 
 
@@ -97,27 +109,41 @@ def main():
     all_dfs = []
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Stage 1–3: Benchmark each model
+    # Stage 1–3: Benchmark each model and negator
     # ══════════════════════════════════════════════════════════════════════════
     for model_name in model_names:
-        print(f"\n{'#'*70}")
-        print(f"# Model: {model_name}")
-        print(f"{'#'*70}\n")
-
-        model = load_model(model_name)
-
-        # Load dataset (validate single-token targets against this model)
-        pairs = load_counterfact(max_samples=max_s, model=model)
-
-        # Run benchmark
-        csv_path = os.path.join(args.results_dir, f"{model_name}_benchmark.csv")
-        df = run_benchmark(
-            model,
-            pairs,
-            model_name=model_name,
-            output_csv=csv_path,
-        )
-        all_dfs.append(df)
+        for neg_suffix in args.negator_suffix:
+            run_title = f"{model_name} (Negator: '{neg_suffix}')"
+            # create safe filename element for neg suffix:
+            safe_suffix = neg_suffix.strip().replace(" ", "-")
+            if not safe_suffix: safe_suffix = "empty"
+            
+            print(f"\n{'#'*70}")
+            print(f"# Model: {run_title}")
+            print(f"{'#'*70}\n")
+    
+            model = load_model(model_name)
+    
+            # Load dataset (validate single-token targets against this model)
+            pairs = load_counterfact(max_samples=max_s, model=model, negator_suffix=neg_suffix)
+    
+            # Run benchmark
+            csv_path = os.path.join(args.results_dir, f"{model_name}_{safe_suffix}_benchmark.csv")
+            
+            # Since SGR analysis/metrics might expect columns or we might want to compare 
+            # across negations later, we add a negator column tracking in the analysis scripts.
+            df = run_benchmark(
+                model,
+                pairs,
+                model_name=model_name,
+                output_csv=csv_path,
+            )
+            # Annotate with the negator
+            df['negator'] = neg_suffix
+            all_dfs.append(df)
+            
+            # re-save dataframe with annotation just in case
+            df.to_csv(csv_path, index=False)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Stage 4: SGR distribution analysis
@@ -136,16 +162,17 @@ def main():
     print(f"Combined results → {combined_csv}")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Stage 5: Per-head decomposition (first model, subsample for speed)
+    # Stage 5: Per-head decomposition (first model, first negator, subsample for speed)
     # ══════════════════════════════════════════════════════════════════════════
     if not args.skip_per_head:
         primary_model_name = model_names[0]
+        primary_negator = args.negator_suffix[0]
         print(f"\n{'#'*70}")
-        print(f"# Stage 5: Per-Head Decomposition ({primary_model_name})")
+        print(f"# Stage 5: Per-Head Decomposition ({primary_model_name}, '{primary_negator}')")
         print(f"{'#'*70}\n")
 
         p_model = load_model(primary_model_name)
-        p_pairs = load_counterfact(max_samples=min(max_s or 200, 200), model=p_model)
+        p_pairs = load_counterfact(max_samples=min(max_s or 200, 200), model=p_model, negator_suffix=primary_negator)
 
         # Compute mean delta across dataset
         mean_delta = compute_head_dla_batch(
@@ -166,7 +193,7 @@ def main():
         h_pos, h_neg = per_head_dla(
             p_model,
             "The capital of France is",
-            "The capital of France is not",
+            f"The capital of France is{primary_negator}",
             " Paris",
         )
         plot_head_dla_heatmap(h_pos, h_neg,
@@ -185,7 +212,7 @@ def main():
             amplification_sweep(
                 p_model,
                 positive_prompt="The capital of France is",
-                negated_prompt="The capital of France is not",
+                negated_prompt=f"The capital of France is{primary_negator}",
                 target_token=" Paris",
                 heads=top_heads,
                 scales=args.amp_scales,
