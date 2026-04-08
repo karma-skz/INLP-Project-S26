@@ -1,0 +1,65 @@
+======================================================================
+  Main-Pipeline Activation Patching Evaluation
+======================================================================
+
+Evaluating: gpt2-small
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading weights: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 148/148 [00:00<00:00, 16787.20it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loaded pretrained model gpt2-small into HookedTransformer
+Loaded  gpt2-small            layers=12  heads=12  d_model=768  device=cuda
+Loading NeelNanda/counterfact-tracing … done (21919 entries).
+  → 1000 valid prompt pairs (skipped 0 multi-token, 0 missing fields)
+Loaded 1000 test samples. Identifying failure cases...
+Found 104 natural failure cases (10.4% failure rate).
+Commencing Patching Iterations:
+gpt2-small: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 104/104 [01:16<00:00,  1.36it/s]
+
+Evaluating: pythia-160m
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 148/148 [00:00<00:00, 5775.07it/s]
+Loaded pretrained model pythia-160m into HookedTransformer
+Loaded  pythia-160m           layers=12  heads=12  d_model=768  device=cuda
+Loading NeelNanda/counterfact-tracing … done (21919 entries).
+  → 1000 valid prompt pairs (skipped 110 multi-token, 0 missing fields)
+Loaded 1000 test samples. Identifying failure cases...
+Found 76 natural failure cases (7.6% failure rate).
+Commencing Patching Iterations:
+pythia-160m: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 76/76 [00:57<00:00,  1.32it/s]
+
+Evaluating: gpt2-medium
+Loading weights: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 292/292 [00:00<00:00, 12093.66it/s]
+Loaded pretrained model gpt2-medium into HookedTransformer
+Loaded  gpt2-medium           layers=24  heads=16  d_model=1024  device=cuda
+Loading NeelNanda/counterfact-tracing … done (21919 entries).
+  → 1000 valid prompt pairs (skipped 0 multi-token, 0 missing fields)
+Loaded 1000 test samples. Identifying failure cases...
+Found 105 natural failure cases (10.5% failure rate).
+Commencing Patching Iterations:
+gpt2-medium: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 105/105 [07:59<00:00,  4.57s/it]
+
+Evaluating: gpt2-large
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 436/436 [00:00<00:00, 4663.64it/s]
+Loaded pretrained model gpt2-large into HookedTransformer
+Loaded  gpt2-large            layers=36  heads=20  d_model=1280  device=cuda
+Loading NeelNanda/counterfact-tracing … done (21919 entries).
+  → 1000 valid prompt pairs (skipped 0 multi-token, 0 missing fields)
+Loaded 1000 test samples. Identifying failure cases...
+Found 119 natural failure cases (11.9% failure rate).
+Commencing Patching Iterations:
+gpt2-large: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 119/119 [10:02<00:00,  5.06s/it]
+
+Evaluating: pythia-410m
+Loading weights: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 292/292 [00:00<00:00, 967.80it/s]
+Loaded pretrained model EleutherAI/pythia-410m into HookedTransformer
+Loaded  EleutherAI/pythia-410m  layers=24  heads=16  d_model=1024  device=cuda
+Loading NeelNanda/counterfact-tracing … done (21919 entries).
+  → 1000 valid prompt pairs (skipped 110 multi-token, 0 missing fields)
+Loaded 1000 test samples. Identifying failure cases...
+Found 100 natural failure cases (10.0% failure rate).
+Commencing Patching Iterations:
+pythia-410m: 100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 100/100 [02:25<00:00,  1.46s/it]
+
+======================================================================
+  Generating Rescue Rate Comparative Figure
+======================================================================
+Success! Final figure saved to: figures/activation_patching_rescue_rate.png
