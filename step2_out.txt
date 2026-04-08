@@ -1,9 +1,0 @@
-Loaded 82962 samples from results/all_models_benchmark.csv
-Retained 45059 samples with a valid crossover layer.
-
---- Generating Crossover Analysis Plots ---
-Saved: figures/crossover_layer_dist.png
-Saved: figures/crossover_vs_failure.png
-Saved: figures/crossover_vs_sgr.png
--------------------------------------------
-
