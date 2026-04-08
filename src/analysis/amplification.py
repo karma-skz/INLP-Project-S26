@@ -230,7 +230,7 @@ def dataset_amplification_experiment(
     scales: Optional[List[float]] = None,
     fig_dir: str = "figures",
     verbose: bool = True,
-) -> None:
+) -> List[float]:
     """
     For each scale, compute the negation failure rate over *pairs* and plot
     how it decreases as inhibition heads are amplified.
@@ -302,3 +302,5 @@ def dataset_amplification_experiment(
     plt.savefig(path, dpi=150)
     plt.close()
     print(f"Saved {path}")
+
+    return failure_rates
