@@ -37,6 +37,8 @@ from src.analysis.amplification import dataset_amplification_experiment
 
 def parse_args():
     p = argparse.ArgumentParser()
+    p.add_argument("--models", nargs="+", default=["gpt2-small", "pythia-160m"],
+                   help="List of HF models to evaluate.")
     p.add_argument("--max_samples", type=int, default=200,
                    help="Number of dataset samples to run per model.")
     p.add_argument("--top_k", type=int, default=10,
@@ -58,7 +60,7 @@ def main():
     os.makedirs(args.fig_dir, exist_ok=True)
     
     # ── Configuration ──
-    models_to_test = ["gpt2-small", "pythia-160m"]
+    models_to_test = args.models
     scales = [1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
     
     # We will collect the failure rates per model
