@@ -36,6 +36,17 @@ import os
 import pandas as pd
 import torch
 
+# Monkey patch for transformer_lens Pythia/GPTNeoX loading bug:
+# Recent versions of `transformers` dropped the `rotary_pct` attribute from
+# GPTNeoXConfig, but transformer_lens still tries to access it. This patch
+# restores the expected default value (0.25) so Pythia models load correctly.
+try:
+    from transformers import GPTNeoXConfig
+    if not hasattr(GPTNeoXConfig, "rotary_pct"):
+        GPTNeoXConfig.rotary_pct = 0.25
+except ImportError:
+    pass
+
 from src.dataset  import load_counterfact
 from src.models   import load_model
 from src.benchmark import run_benchmark, analyse_sgr_distribution
