@@ -116,7 +116,7 @@ def plot_rescue_rates(all_rates: dict[str, dict], fig_dir: str) -> str | None:
 
     os.makedirs(fig_dir, exist_ok=True)
     n_models = len(all_rates)
-    fig, axes = plt.subplots(1, n_models, figsize=(6 * n_models, 5), sharey=True)
+    fig, axes = plt.subplots(n_models, 1, figsize=(8, 4 * n_models), sharey=True)
     if n_models == 1:
         axes = [axes]
 
@@ -135,8 +135,7 @@ def plot_rescue_rates(all_rates: dict[str, dict], fig_dir: str) -> str | None:
         axis.set_xlabel("Patched layer", fontsize=11)
         axis.grid(True, linestyle=":", alpha=0.6)
         axis.set_ylim(*dynamic_axis_limits(all_values, floor=0.0, ceil=100.0))
-        if axis is axes[0]:
-            axis.set_ylabel("Rescue rate (% of failures fixed)", fontsize=11)
+        axis.set_ylabel("Rescue rate (%)", fontsize=11)
         axis.legend()
 
     plt.suptitle("Activation Patching Rescue Rate", fontsize=14, fontweight="bold", y=1.03)
