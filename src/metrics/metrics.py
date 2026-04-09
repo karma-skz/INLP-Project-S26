@@ -41,6 +41,20 @@ def _finite_sgr(df: pd.DataFrame) -> pd.Series:
     return sgr
 
 
+def _safe_spearman(x: np.ndarray, y: np.ndarray) -> Tuple[float, float]:
+    """Return Spearman stats or NaN when the sample is too small."""
+    if len(x) < 2 or len(y) < 2:
+        return np.nan, np.nan
+    return stats.spearmanr(x, y)
+
+
+def _safe_pointbiserial(x: np.ndarray, y: np.ndarray) -> Tuple[float, float]:
+    """Return point-biserial stats or NaN when the sample is too small."""
+    if len(x) < 2 or len(y) < 2:
+        return np.nan, np.nan
+    return stats.pointbiserialr(x, y)
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap CI
 # ---------------------------------------------------------------------------
@@ -147,10 +161,10 @@ def sgr_vs_failure_correlation(
         sgr_c, fail_c = sgr[mask], fail[mask]
 
         # Spearman
-        spearman_r, spearman_p = stats.spearmanr(sgr_c, fail_c)
+        spearman_r, spearman_p = _safe_spearman(sgr_c, fail_c)
 
         # Point-biserial
-        pb_r, pb_p = stats.pointbiserialr(fail_c, sgr_c)
+        pb_r, pb_p = _safe_pointbiserial(fail_c, sgr_c)
 
         # Mann-Whitney U (SGR in failure group vs success group)
         sgr_fail    = sgr_c[fail_c == 1]
@@ -210,12 +224,15 @@ def summary_stats(
         n      = len(grp)
         nf     = int(grp["negation_failure"].sum())
 
-        spearman_r, spearman_p = stats.spearmanr(
+        spearman_r, spearman_p = _safe_spearman(
             sgr_s.dropna().values,
             grp.loc[sgr_s.notna(), "negation_failure"].astype(float).values
         )
 
         crossover_rate = grp["crossover_layer"].notna().mean() if "crossover_layer" in grp.columns else np.nan
+
+        finite_sgr = sgr_s.dropna()
+        sgr_gt1_rate = float((finite_sgr > 1).mean()) if len(finite_sgr) else np.nan
 
         out[model] = {
             "n_samples":          n,
@@ -223,7 +240,7 @@ def summary_stats(
             "sgr_mean":           float(sgr_s.mean()),
             "sgr_median":         float(sgr_s.median()),
             "sgr_std":            float(sgr_s.std()),
-            "sgr_gt1_rate":       float((sgr_s > 1).mean()),
+            "sgr_gt1_rate":       sgr_gt1_rate,
             "spearman_r":         float(spearman_r),
             "spearman_p":         float(spearman_p),
             "crossover_present":  float(crossover_rate),

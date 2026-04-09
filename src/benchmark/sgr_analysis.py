@@ -51,6 +51,39 @@ def _parse_layer_arr(series: pd.Series) -> np.ndarray:
     )
 
 
+def _auto_sgr_clip(values: pd.Series) -> float:
+    """Choose a data-aware plotting cap for SGR."""
+    finite = values.replace([float("inf"), -float("inf")], np.nan).dropna().astype(float)
+    if finite.empty:
+        return 1.0
+    if len(finite) < 100:
+        return max(1.0, float(finite.max()))
+    return max(1.0, float(np.nanpercentile(finite, 99.0)))
+
+
+def _axis_limits(values, floor: float | None = None, ceil: float | None = None, pad_ratio: float = 0.05):
+    vals = np.asarray(values, dtype=float)
+    vals = vals[np.isfinite(vals)]
+    if vals.size == 0:
+        lo, hi = 0.0, 1.0
+    else:
+        lo = float(vals.min())
+        hi = float(vals.max())
+        if np.isclose(lo, hi):
+            pad = max(abs(lo) * pad_ratio, 0.1)
+        else:
+            pad = (hi - lo) * pad_ratio
+        lo -= pad
+        hi += pad
+    if floor is not None:
+        lo = max(lo, floor)
+    if ceil is not None:
+        hi = min(hi, ceil)
+    if np.isclose(lo, hi):
+        hi = lo + 1.0
+    return lo, hi
+
+
 # ---------------------------------------------------------------------------
 # Main analysis function
 # ---------------------------------------------------------------------------
@@ -58,7 +91,7 @@ def _parse_layer_arr(series: pd.Series) -> np.ndarray:
 def analyse_sgr_distribution(
     df: pd.DataFrame,
     fig_dir: str = "figures",
-    sgr_clip: float = 10.0,
+    sgr_clip: Optional[float] = None,
     verbose: bool = True,
 ) -> dict:
     """
@@ -85,8 +118,11 @@ def analyse_sgr_distribution(
 
     # ── Clean up ─────────────────────────────────────────────────────────────
     df = df.copy()
-    df["sgr_clipped"] = df["sgr"].replace([float("inf"), float("nan")], sgr_clip)
-    df["sgr_clipped"] = df["sgr_clipped"].clip(upper=sgr_clip)
+    if sgr_clip is None:
+        sgr_clip = _auto_sgr_clip(df["sgr"])
+    df["sgr_clipped"] = pd.to_numeric(df["sgr"], errors="coerce")
+    df["sgr_clipped"] = df["sgr_clipped"].replace([float("inf"), -float("inf")], np.nan)
+    df["sgr_clipped"] = df["sgr_clipped"].fillna(sgr_clip).clip(upper=sgr_clip)
     df["negation_failure"] = df["negation_failure"].astype(bool)
 
     models = df["model_name"].unique().tolist() if "model_name" in df.columns else ["model"]
@@ -105,24 +141,27 @@ def analyse_sgr_distribution(
             print(f"  Negation failures: {nf}  ({nf/n:.1%})")
             print(f"  Mean SGR         : {sgr_finite.mean():.3f}")
             print(f"  Median SGR       : {sgr_finite.median():.3f}")
-            print(f"  SGR > 1 (failure): {(sgr_finite > 1).mean():.1%}")
+            print(f"  SGR > 1 rate     : {(sgr_finite > 1).mean():.1%}")
 
     # ── Figure A: SGR histogram ───────────────────────────────────────────────
     fig, ax = plt.subplots(figsize=(10, 5))
-    for m, colour in zip(models, ["steelblue", "salmon", "seagreen"]):
+    bins = min(60, max(20, int(np.sqrt(max(len(df), 1)))))
+    palette = ["steelblue", "salmon", "seagreen", "goldenrod", "slateblue"]
+    for m, colour in zip(models, palette):
         sub = df[df["model_name"] == m] if "model_name" in df.columns else df
         success = sub[~sub["negation_failure"]]["sgr_clipped"]
         failure = sub[sub["negation_failure"]]["sgr_clipped"]
-        ax.hist(success, bins=40, alpha=0.6, color=colour,
-                label=f"{m} — success (SGR≤1)")
-        ax.hist(failure, bins=40, alpha=0.6, color="tomato",
-                label=f"{m} — failure (SGR>1)", hatch="//")
+        ax.hist(success, bins=bins, alpha=0.6, color=colour,
+                label=f"{m} — success")
+        ax.hist(failure, bins=bins, alpha=0.6, color="tomato",
+                label=f"{m} — failure", hatch="//")
 
     ax.axvline(x=1.0, color="black", linewidth=1.5, linestyle="--", label="SGR = 1")
     ax.set_xlabel("Signal-to-Gate Ratio (SGR)")
     ax.set_ylabel("Count")
     ax.set_title("SGR Distribution — Success vs Negation Failure")
     ax.legend(fontsize=8)
+    ax.set_xlim(*_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
     plt.tight_layout()
     path = os.path.join(fig_dir, "sgr_histogram.png")
     plt.savefig(path, dpi=150)
@@ -133,12 +172,15 @@ def analyse_sgr_distribution(
     # ── Figure B: failure rate vs SGR threshold ───────────────────────────────
     thresholds = np.linspace(0, sgr_clip, 200)
     fig, ax = plt.subplots(figsize=(9, 5))
-    for m, colour in zip(models, ["steelblue", "salmon"]):
+    all_rates = []
+    for m, colour in zip(models, palette):
         sub = df[df["model_name"] == m] if "model_name" in df.columns else df
         rates = [
             sub[sub["sgr_clipped"] <= t]["negation_failure"].mean()
             for t in thresholds
         ]
+        rates = np.asarray(rates, dtype=float)
+        all_rates.extend(rates[np.isfinite(rates)].tolist())
         ax.plot(thresholds, rates, color=colour, linewidth=2, label=m)
 
     ax.axvline(x=1.0, color="black", linestyle="--", linewidth=1, label="SGR = 1")
@@ -146,7 +188,8 @@ def analyse_sgr_distribution(
     ax.set_ylabel("Negation failure rate (proportion)")
     ax.set_title("Failure Rate vs SGR Threshold")
     ax.legend()
-    ax.set_ylim(0, 1)
+    ax.set_xlim(*_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
+    ax.set_ylim(*_axis_limits(all_rates, floor=0.0, ceil=1.0))
     plt.tight_layout()
     path = os.path.join(fig_dir, "sgr_failure_rate.png")
     plt.savefig(path, dpi=150)
@@ -165,15 +208,16 @@ def analyse_sgr_distribution(
         axes[0].axhline(y=1.0, color="red", linestyle="--")
         axes[0].set_ylabel("SGR (clipped)")
         axes[0].set_title("SGR Distribution by Model")
+        axes[0].set_ylim(*_axis_limits(np.concatenate(data_to_plot) if data_to_plot else np.array([0.0]), floor=0.0))
 
         # Failure rate bar chart
         failure_rates = [
             df[df["model_name"] == m]["negation_failure"].mean() for m in models
         ]
-        axes[1].bar(models, failure_rates, color=["steelblue", "salmon"])
+        axes[1].bar(models, failure_rates, color=palette[:len(models)])
         axes[1].set_ylabel("Negation failure rate")
         axes[1].set_title("Failure Rate by Model")
-        axes[1].set_ylim(0, 1)
+        axes[1].set_ylim(*_axis_limits(failure_rates, floor=0.0, ceil=1.0))
 
         plt.tight_layout()
         path = os.path.join(fig_dir, "sgr_model_comparison.png")
@@ -197,10 +241,10 @@ def analyse_sgr_distribution(
 
         # Separate failure / success for each layer
         fail_mask    = sub["negation_failure"].values.astype(bool)
-        mean_ffn_f   = ffn_mat[fail_mask].mean(axis=0)
-        mean_ffn_s   = ffn_mat[~fail_mask].mean(axis=0)
-        mean_attn_f  = attn_mat[fail_mask].mean(axis=0)
-        mean_attn_s  = attn_mat[~fail_mask].mean(axis=0)
+        mean_ffn_f   = ffn_mat[fail_mask].mean(axis=0) if fail_mask.any() else np.full(n_layers, np.nan)
+        mean_ffn_s   = ffn_mat[~fail_mask].mean(axis=0) if (~fail_mask).any() else np.full(n_layers, np.nan)
+        mean_attn_f  = attn_mat[fail_mask].mean(axis=0) if fail_mask.any() else np.full(n_layers, np.nan)
+        mean_attn_s  = attn_mat[~fail_mask].mean(axis=0) if (~fail_mask).any() else np.full(n_layers, np.nan)
 
         stacked_ffn  = np.vstack([mean_ffn_s, mean_ffn_f])
         stacked_attn = np.vstack([mean_attn_s, mean_attn_f])

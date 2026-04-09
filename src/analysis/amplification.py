@@ -63,6 +63,29 @@ def _make_head_scale_hook(head_idx: int, scale: float):
     return hook_fn
 
 
+def _dynamic_ylim(values, floor: float | None = None, ceil: float | None = None, pad_ratio: float = 0.08):
+    vals = np.asarray(values, dtype=float)
+    vals = vals[np.isfinite(vals)]
+    if vals.size == 0:
+        lo, hi = 0.0, 1.0
+    else:
+        lo = float(vals.min())
+        hi = float(vals.max())
+        if np.isclose(lo, hi):
+            pad = max(abs(lo) * pad_ratio, 0.1)
+        else:
+            pad = (hi - lo) * pad_ratio
+        lo -= pad
+        hi += pad
+    if floor is not None:
+        lo = max(lo, floor)
+    if ceil is not None:
+        hi = min(hi, ceil)
+    if np.isclose(lo, hi):
+        hi = lo + 1.0
+    return lo, hi
+
+
 # ---------------------------------------------------------------------------
 # Single amplification run
 # ---------------------------------------------------------------------------
@@ -195,6 +218,7 @@ def amplification_sweep(
     axes[0].set_ylabel(f"Target logit (\"{target_token}\")")
     axes[0].set_title("Target logit vs Inhibition Head Scale")
     axes[0].legend()
+    axes[0].set_ylim(*_dynamic_ylim(pos_logits + neg_logits))
 
     gap = [p - n for p, n in zip(pos_logits, neg_logits)]
     axes[1].plot(scales, gap, "D-", color="mediumorchid", linewidth=2)
@@ -203,6 +227,7 @@ def amplification_sweep(
     axes[1].set_xlabel("Amplification scale")
     axes[1].set_ylabel("Positive − Negated logit (gap)")
     axes[1].set_title("Separation between prompts")
+    axes[1].set_ylim(*_dynamic_ylim(gap))
 
     head_str = ", ".join(f"({l},{h})" for l, h in heads[:5])
     if len(heads) > 5:
@@ -215,7 +240,7 @@ def amplification_sweep(
     plt.close()
     print(f"Saved {path}")
 
-    return {"scales": scales, "pos_logits": pos_logits, "neg_logits": neg_logits}
+    return {"scales": scales, "pos_logits": pos_logits, "neg_logits": neg_logits, "gap": gap, "figure_path": path}
 
 
 # ---------------------------------------------------------------------------
@@ -229,8 +254,9 @@ def dataset_amplification_experiment(
     heads: List[Tuple[int, int]],
     scales: Optional[List[float]] = None,
     fig_dir: str = "figures",
+    filename: str = "amplification_failure_rate.png",
     verbose: bool = True,
-) -> List[float]:
+) -> Dict[str, object]:
     """
     For each scale, compute the negation failure rate over *pairs* and plot
     how it decreases as inhibition heads are amplified.
@@ -295,12 +321,11 @@ def dataset_amplification_experiment(
     ax.set_xlabel("Inhibition head amplification scale")
     ax.set_ylabel("Negation failure rate")
     ax.set_title("Can Amplifying Inhibition Heads Fix Negation Failures?")
-    ax.set_ylim(0, 1)
+    ax.set_ylim(*_dynamic_ylim(failure_rates, floor=0.0, ceil=1.0))
     ax.legend()
     plt.tight_layout()
-    path = os.path.join(fig_dir, "amplification_failure_rate.png")
+    path = os.path.join(fig_dir, filename)
     plt.savefig(path, dpi=150)
     plt.close()
     print(f"Saved {path}")
-
-    return failure_rates
+    return {"scales": scales, "failure_rates": failure_rates, "figure_path": path}

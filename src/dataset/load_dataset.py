@@ -124,10 +124,10 @@ def load_counterfact(
     skipped_multi = 0
     skipped_missing = 0
 
-    for entry in raw:
+    for raw_idx, entry in enumerate(raw):
         # ── Extract fields (handle both flat and nested schemas) ──────────
         try:
-            case_id = int(entry.get("case_id", len(pairs)))
+            case_id = int(entry.get("case_id", raw_idx))
             subject = entry.get("subject", "")
 
             # The prompt field is already formatted in NeelNanda's version
@@ -201,12 +201,12 @@ def stream_counterfact(
     raw = hf_load_dataset("NeelNanda/counterfact-tracing", split=split, streaming=True)
     count = 0
 
-    for entry in raw:
+    for raw_idx, entry in enumerate(raw):
         if max_samples is not None and count >= max_samples:
             return
 
         try:
-            case_id = int(entry.get("case_id", count))
+            case_id = int(entry.get("case_id", raw_idx))
             subject = entry.get("subject", "")
             positive_prompt = entry.get("prompt", "").strip()
 
