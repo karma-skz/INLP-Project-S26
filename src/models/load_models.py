@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import torch
 from transformer_lens import HookedTransformer
+from transformer_lens import loading_from_pretrained as tl_loading
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -48,6 +49,32 @@ MODEL_SHORTNAMES: dict[str, str] = {
     "pythia":      "pythia-160m",
     "pythia-410m": "pythia-410m",
 }
+
+
+def _patch_transformerlens_hf_compat() -> None:
+    """
+    Bridge minor config-schema differences between current transformers and
+    the installed TransformerLens version.
+
+    Newer GPT-NeoX configs store the partial rotary factor under
+    ``rope_parameters.partial_rotary_factor`` instead of exposing
+    ``rotary_pct`` directly. TransformerLens still expects ``rotary_pct``
+    for Pythia-family models.
+    """
+    current = tl_loading.AutoConfig.from_pretrained
+    if getattr(current, "_inlp_rotary_pct_patch", False):
+        return
+
+    def patched_from_pretrained(*args, **kwargs):
+        cfg = current(*args, **kwargs)
+        if cfg.__class__.__name__ == "GPTNeoXConfig" and not hasattr(cfg, "rotary_pct"):
+            rope_params = getattr(cfg, "rope_parameters", None) or {}
+            rotary_pct = rope_params.get("partial_rotary_factor", 0.25)
+            setattr(cfg, "rotary_pct", rotary_pct)
+        return cfg
+
+    patched_from_pretrained._inlp_rotary_pct_patch = True  # type: ignore[attr-defined]
+    tl_loading.AutoConfig.from_pretrained = patched_from_pretrained
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +117,8 @@ def load_model(
         raise ValueError(
             f"Unknown model '{model_name}'. Supported: {supported}"
         )
+
+    _patch_transformerlens_hf_compat()
 
     tl_name = SUPPORTED_MODELS[model_name]
 
