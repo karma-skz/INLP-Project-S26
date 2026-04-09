@@ -241,3 +241,22 @@ Fixed seed throughout:
 ```python
 torch.manual_seed(67)
 ```
+
+The full codebase is available at [https://github.com/karma-skz/INLP-Project-S26](https://github.com/karma-skz/INLP-Project-S26). To reproduce the core results:
+```bash
+conda activate inlp-project
+python run_pipeline.py \
+  --models gpt2-small pythia-160m \
+          gpt2-medium gpt2-large \
+          pythia-410m \
+  --max_samples -1
+```
+Post-hoc analyses:
+```bash
+python sgr_lt1_verification.py
+python hard_negation_audit.py
+python crossover_analysis.py
+python extended_amplification.py
+python activation_patching.py
+```
+Dependencies are listed in `requirements.txt` (PyTorch, TransformerLens, HuggingFace Datasets, matplotlib, seaborn, scipy).

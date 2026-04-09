@@ -455,18 +455,26 @@ We cross-referenced failure patterns with CounterFact's relation-type metadata t
 \paragraph{Subject complexity.} Multi-word subjects produce more failures (15 of 24 failures have $\geq$2-word subjects). Wider associative FFN activity for complex entities creates a stronger memory signal, making suppression harder.
 
 % =================================================================
-\section{Discussion}
-\label{sec:discussion}
+\section{Evaluation}
+\label{sec:evaluation}
 % =================================================================
 
-\subsection{Positive Results and Hypothesis Validation}
+\subsection{Hypothesis Validation}
+Our experimental framework enables the direct evaluation of the Competitive Gating Hypothesis. Through the metrics outlined in our methodology, we assess the precise balance between FFN retrieval and attention inhibition.
 
-The experiments provide multi-faceted support for the Competitive Gating Hypothesis:
+The validation relies primarily on the Signal-to-Gate Ratio (SGR) and crossover layer metrics. When the inhibition signal exceeds retrieval (SGR\,$<$\,1), the model successfully suppresses the factual token. Correspondingly, crossover analysis and patching both converge on layers 5--9 as the critical boundary for 12-layer models. The systematic presence of this relationship confirms the core logic of the hypothesis.
 
+% =================================================================
+\section{Analysis}
+\label{sec:analysis}
+% =================================================================
+
+\subsection{Positive Results}
+\label{sec:pos_results}
+Our framework generated multiple strong positive findings validating the mechanistic approach:
 \begin{enumerate}
 \item \textbf{SGR\,$<$\,1 is sufficient for success.} When the inhibition signal exceeds retrieval, the model never fails at negation (100\% success rate).
 \item \textbf{FFN retrieval is logic-blind.} Mid-layer FFN DLA is essentially identical for positive and negated prompts, confirming that factual recall is context-independent.
-\item \textbf{Inhibition has a fixed window.} Crossover analysis and patching both converge on layers 5--9 as the critical boundary for 12-layer models.
 \item \textbf{Amplification is causal.} Scaling inhibition heads reduces failure rates by up to 50\%, confirming their functional role.
 \item \textbf{Semantic structure predicts failure.} Relations requiring soft-associative reasoning are mechanistically harder to inhibit than hard-categorical ones.
 \end{enumerate}
@@ -480,7 +488,11 @@ The experiments provide multi-faceted support for the Competitive Gating Hypothe
 
 \paragraph{Scaling does not help.} Counter to naive expectations, GPT-2 Large (774M params) fails \emph{more frequently} than GPT-2 Small (124M params). Larger FFN capacity amplifies retrieval without proportionally strengthening the inhibition circuit---the memory muscle grows faster than the logic brake.
 
-\subsection{Limitations}
+\subsection{Ablation Studies}
+\label{sec:ablations}
+While we leveraged activation patching to establish causal localization (Section \ref{sec:patching_results}) and artificial amplification to demonstrate causal sufficiency, we have not yet conducted formal network-wide ablation studies (e.g., iteratively removing or zeroing out individual inhibition heads). Activation patching provides a localized causal intervention, but comprehensive ablation tests will be necessary to confirm the strict \emph{necessity} of these identified heads across all contexts.
+
+\subsection{Limitations and Challenges}
 \label{sec:limitations}
 
 \begin{itemize}
@@ -489,6 +501,20 @@ The experiments provide multi-faceted support for the Competitive Gating Hypothe
 \item \textbf{SGR\,$<$\,1 rarity.} The perfect success rate at SGR\,$<$\,1 is based on very few samples ($n\!=\!1$ for GPT-2 Small's finite-SGR samples). While promising, larger sample sizes at this threshold are needed for stronger claims.
 \item \textbf{Top-$k$ head selection.} Our amplification strategy amplifies a fixed set of 10 heads. The GPT-2 Large results suggest this may be too coarse for deeper models.
 \item \textbf{Causal granularity.} Patching at the layer level conflates multiple head contributions. Head-level patching would provide finer causal resolution.
+\end{itemize}
+
+\subsection{Ethics Statement}
+
+This work analyses the internal mechanisms of publicly available language models (GPT-2, Pythia) using an established public dataset (CounterFact). No private data, personal information, or sensitive content is involved. Our findings about negation failure could inform alignment research by identifying specific architectural components that require strengthening for safer model deployment.
+
+\subsection{Future Work}
+
+\begin{itemize}
+\item \textbf{Soft negation:} Extend to ``is unlikely to be'' and ``rarely'' constructions, comparing SGR distributions to hard negation.
+\item \textbf{Head-level patching:} Patch individual inhibition heads rather than full layers for finer causal resolution.
+\item \textbf{Ablation:} Remove individual inhibition heads to confirm causal \emph{necessity} (complementing the amplification sufficiency evidence).
+\item \textbf{Larger models:} Test on GPT-2 XL, Pythia-1B, and instruction-tuned models to determine whether RLHF strengthens the inhibition circuit.
+\item \textbf{Free-form negation:} Evaluate on open-ended generation tasks beyond the structured CounterFact format.
 \end{itemize}
 
 % =================================================================
@@ -502,44 +528,6 @@ The Signal-to-Gate Ratio (SGR) emerged as a powerful diagnostic metric: SGR\,$<$
 
 Our results have implications beyond negation: any task requiring a transformer to \emph{override} its most probable completion faces the same retrieval--inhibition bottleneck. The Competitive Gating Hypothesis provides a framework for understanding and potentially mitigating this class of failures.
 
-% =================================================================
-\section*{Ethics Statement}
-% =================================================================
-This work analyses the internal mechanisms of publicly available language models (GPT-2, Pythia) using an established public dataset (CounterFact). No private data, personal information, or sensitive content is involved. Our findings about negation failure could inform alignment research by identifying specific architectural components that require strengthening for safer model deployment.
-
-% =================================================================
-\section*{Future Work}
-% =================================================================
-
-\begin{itemize}
-\item \textbf{Soft negation:} Extend to ``is unlikely to be'' and ``rarely'' constructions, comparing SGR distributions to hard negation.
-\item \textbf{Head-level patching:} Patch individual inhibition heads rather than full layers for finer causal resolution.
-\item \textbf{Ablation:} Remove individual inhibition heads to confirm causal \emph{necessity} (complementing the amplification sufficiency evidence).
-\item \textbf{Larger models:} Test on GPT-2 XL, Pythia-1B, and instruction-tuned models to determine whether RLHF strengthens the inhibition circuit.
-\item \textbf{Free-form negation:} Evaluate on open-ended generation tasks beyond the structured CounterFact format.
-\end{itemize}
-
-% =================================================================
-\section*{Reproducibility}
-% =================================================================
-The full codebase is available at \url{https://github.com/karma-skz/INLP-Project-S26}. To reproduce the core results:
-\begin{verbatim}
-conda activate inlp-project
-python run_pipeline.py \
-  --models gpt2-small pythia-160m \
-          gpt2-medium gpt2-large \
-          pythia-410m \
-  --max_samples -1
-\end{verbatim}
-Post-hoc analyses:
-\begin{verbatim}
-python sgr_lt1_verification.py
-python hard_negation_audit.py
-python crossover_analysis.py
-python extended_amplification.py
-python activation_patching.py
-\end{verbatim}
-Dependencies are listed in {\tt requirements.txt} (PyTorch, TransformerLens, HuggingFace Datasets, matplotlib, seaborn, scipy).
 
 % =================================================================
 % References
