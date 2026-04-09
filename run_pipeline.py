@@ -25,7 +25,7 @@ Usage
     python run_pipeline.py --negator_suffix " not" " unlikely to be" " rarely"
 
     # Skip heavy stages
-    python run_pipeline.py --skip_patching --skip_amplification
+    python run_pipeline.py --skip_per_head --skip_amplification
 """
 
 from __future__ import annotations
@@ -36,23 +36,13 @@ import os
 import pandas as pd
 import torch
 
-# Monkey patch for transformer_lens Pythia/GPTNeoX loading bug:
-# Recent versions of `transformers` dropped the `rotary_pct` attribute from
-# GPTNeoXConfig, but transformer_lens still tries to access it. This patch
-# restores the expected default value (0.25) so Pythia models load correctly.
-try:
-    from transformers import GPTNeoXConfig
-    if not hasattr(GPTNeoXConfig, "rotary_pct"):
-        GPTNeoXConfig.rotary_pct = 0.25
-except ImportError:
-    pass
-
 from src.dataset  import load_counterfact
-from src.models   import load_model
+from src.models   import MODEL_SHORTNAMES, load_model
 from src.benchmark import run_benchmark, analyse_sgr_distribution
-from src.analysis  import per_head_dla, top_inhibition_heads, compute_head_dla_batch
+from src.analysis  import compute_head_dla_batch, per_head_dla, select_top_heads
 from src.analysis  import amplification_sweep, dataset_amplification_experiment
 from src.metrics   import summary_stats, sgr_vs_failure_correlation, compare_models, negation_failure_rate
+from src.utils import benchmark_csv_path
 
 # ── reproducibility ──────────────────────────────────────────────────────────
 torch.manual_seed(67)
@@ -70,7 +60,7 @@ def parse_args():
                    help="Models to benchmark (default: gpt2-small)")
     p.add_argument("--negator_suffix", nargs="+",
                    default=[" not"],
-                   help="Suffer prefixes indicating soft negation (e.g. ' not' or ' rarely')")
+                   help="Suffixes indicating negation style (e.g. ' not' or ' rarely')")
     p.add_argument("--max_samples", type=int, default=200,
                    help="Max CounterFact samples per model (-1 = all, default: 200)")
     p.add_argument("--results_dir", default="results",
@@ -90,22 +80,6 @@ def parse_args():
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _model_shortname(name: str) -> str:
-    """Normalise 'gpt2' → 'gpt2-small', etc."""
-    mapping = {
-        "gpt2": "gpt2-small", 
-        "pythia": "pythia-160m", 
-        "gpt2-medium": "gpt2-medium", 
-        "gpt2-large": "gpt2-large", 
-        "pythia-410m": "pythia-410m"
-    }
-    return mapping.get(name, name)
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -114,7 +88,7 @@ def main():
     os.makedirs(args.results_dir, exist_ok=True)
     os.makedirs(args.fig_dir,     exist_ok=True)
 
-    model_names = [_model_shortname(m) for m in args.models]
+    model_names = [MODEL_SHORTNAMES.get(model_name, model_name) for model_name in args.models]
     max_s       = None if args.max_samples < 0 else args.max_samples
 
     all_dfs = []
@@ -126,9 +100,6 @@ def main():
         for neg_suffix in args.negator_suffix:
             run_title = f"{model_name} (Negator: '{neg_suffix}')"
             # create safe filename element for neg suffix:
-            safe_suffix = neg_suffix.strip().replace(" ", "-")
-            if not safe_suffix: safe_suffix = "empty"
-            
             print(f"\n{'#'*70}")
             print(f"# Model: {run_title}")
             print(f"{'#'*70}\n")
@@ -139,7 +110,7 @@ def main():
             pairs = load_counterfact(max_samples=max_s, model=model, negator_suffix=neg_suffix)
     
             # Run benchmark
-            csv_path = os.path.join(args.results_dir, f"{model_name}_{safe_suffix}_benchmark.csv")
+            csv_path = str(benchmark_csv_path(args.results_dir, model_name, neg_suffix))
             
             # Since SGR analysis/metrics might expect columns or we might want to compare 
             # across negations later, we add a negator column tracking in the analysis scripts.
@@ -191,12 +162,7 @@ def main():
         )
 
         # Identify top inhibition heads
-        n_heads = p_model.cfg.n_heads
-        flat    = mean_delta.flatten().argsort()[::-1][:args.top_k_heads]
-        top_heads = [
-            (int(idx // n_heads), int(idx % n_heads))
-            for idx in flat
-        ]
+        top_heads = select_top_heads(mean_delta, top_k=args.top_k_heads)
         print(f"\nTop-{args.top_k_heads} inhibition heads: {top_heads}")
 
         # Visualise on the canonical example

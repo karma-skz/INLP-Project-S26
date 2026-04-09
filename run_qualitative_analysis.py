@@ -41,6 +41,7 @@ import torch
 
 from src.analysis.per_head import per_head_dla, plot_head_dla_heatmap, top_inhibition_heads
 from src.models import load_model
+from src.utils import load_benchmark_dataframe
 
 
 torch.manual_seed(67)
@@ -414,7 +415,7 @@ def main():
     output_path = Path(args.output_md)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(args.results_csv)
+    df = load_benchmark_dataframe(args.results_csv)
     if args.case_ids:
         selected = df[df["case_id"].isin(args.case_ids)].copy()
         missing = sorted(set(args.case_ids) - set(selected["case_id"].tolist()))

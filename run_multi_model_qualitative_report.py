@@ -16,6 +16,7 @@ import torch
 
 from src.analysis import activation_patching_scan, patched_prompt_metrics
 from src.models import load_model
+from src.utils import benchmark_csv_path, load_benchmark_dataframe
 
 
 torch.manual_seed(67)
@@ -28,15 +29,15 @@ def parse_args():
     p = argparse.ArgumentParser(description="Multi-model qualitative report with activation patching")
     p.add_argument("--models", nargs="+", default=DEFAULT_MODELS, help="Models to include in the report")
     p.add_argument("--results_dir", default="results/cross_model", help="Directory containing per-model benchmark CSVs")
-    p.add_argument("--negator_suffix", default="not", help="Filename-safe negator suffix used in benchmark CSVs")
+    p.add_argument("--negator_suffix", default=" not", help="Negator suffix used in benchmark CSVs")
     p.add_argument("--case_ids", nargs="+", type=int, help="Optional fixed case_ids to analyse")
     p.add_argument("--output_md", default="reports/qualitative_multimodel_report.md", help="Markdown report path")
     p.add_argument("--top_k_predictions", type=int, default=5, help="How many predictions to show per prompt")
     return p.parse_args()
 
 
-def _benchmark_path(results_dir: str, model_name: str, safe_suffix: str) -> Path:
-    return Path(results_dir) / f"{model_name}_{safe_suffix}_benchmark.csv"
+def _benchmark_path(results_dir: str, model_name: str, negator_suffix: str) -> Path:
+    return benchmark_csv_path(results_dir, model_name, negator_suffix)
 
 
 def _fmt_token(token: str) -> str:
@@ -92,13 +93,13 @@ def _top_predictions(model, prompt: str, target_token: str, top_k: int):
     }
 
 
-def _load_results(models: list[str], results_dir: str, safe_suffix: str):
+def _load_results(models: list[str], results_dir: str, negator_suffix: str):
     data = {}
     for model_name in models:
-        path = _benchmark_path(results_dir, model_name, safe_suffix)
+        path = _benchmark_path(results_dir, model_name, negator_suffix)
         if not path.exists():
             raise FileNotFoundError(f"Missing benchmark CSV for {model_name}: {path}")
-        data[model_name] = pd.read_csv(path)
+        data[model_name] = load_benchmark_dataframe(path)
     return data
 
 
@@ -164,8 +165,7 @@ def build_report(selected_case_ids: list[int], rows_by_model: dict[str, pd.DataF
 
 def main():
     args = parse_args()
-    safe_suffix = args.negator_suffix.strip().replace(" ", "-")
-    data_by_model = _load_results(args.models, args.results_dir, safe_suffix)
+    data_by_model = _load_results(args.models, args.results_dir, args.negator_suffix)
 
     common_case_ids = set.intersection(*(set(df["case_id"].tolist()) for df in data_by_model.values()))
     if args.case_ids:

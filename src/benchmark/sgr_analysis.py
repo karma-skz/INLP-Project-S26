@@ -36,6 +36,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from src.utils import dynamic_axis_limits
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,29 +61,6 @@ def _auto_sgr_clip(values: pd.Series) -> float:
     if len(finite) < 100:
         return max(1.0, float(finite.max()))
     return max(1.0, float(np.nanpercentile(finite, 99.0)))
-
-
-def _axis_limits(values, floor: float | None = None, ceil: float | None = None, pad_ratio: float = 0.05):
-    vals = np.asarray(values, dtype=float)
-    vals = vals[np.isfinite(vals)]
-    if vals.size == 0:
-        lo, hi = 0.0, 1.0
-    else:
-        lo = float(vals.min())
-        hi = float(vals.max())
-        if np.isclose(lo, hi):
-            pad = max(abs(lo) * pad_ratio, 0.1)
-        else:
-            pad = (hi - lo) * pad_ratio
-        lo -= pad
-        hi += pad
-    if floor is not None:
-        lo = max(lo, floor)
-    if ceil is not None:
-        hi = min(hi, ceil)
-    if np.isclose(lo, hi):
-        hi = lo + 1.0
-    return lo, hi
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +140,7 @@ def analyse_sgr_distribution(
     ax.set_ylabel("Count")
     ax.set_title("SGR Distribution — Success vs Negation Failure")
     ax.legend(fontsize=8)
-    ax.set_xlim(*_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
+    ax.set_xlim(*dynamic_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
     plt.tight_layout()
     path = os.path.join(fig_dir, "sgr_histogram.png")
     plt.savefig(path, dpi=150)
@@ -188,8 +167,8 @@ def analyse_sgr_distribution(
     ax.set_ylabel("Negation failure rate (proportion)")
     ax.set_title("Failure Rate vs SGR Threshold")
     ax.legend()
-    ax.set_xlim(*_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
-    ax.set_ylim(*_axis_limits(all_rates, floor=0.0, ceil=1.0))
+    ax.set_xlim(*dynamic_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
+    ax.set_ylim(*dynamic_axis_limits(all_rates, floor=0.0, ceil=1.0))
     plt.tight_layout()
     path = os.path.join(fig_dir, "sgr_failure_rate.png")
     plt.savefig(path, dpi=150)
@@ -208,7 +187,7 @@ def analyse_sgr_distribution(
         axes[0].axhline(y=1.0, color="red", linestyle="--")
         axes[0].set_ylabel("SGR (clipped)")
         axes[0].set_title("SGR Distribution by Model")
-        axes[0].set_ylim(*_axis_limits(np.concatenate(data_to_plot) if data_to_plot else np.array([0.0]), floor=0.0))
+        axes[0].set_ylim(*dynamic_axis_limits(np.concatenate(data_to_plot) if data_to_plot else np.array([0.0]), floor=0.0))
 
         # Failure rate bar chart
         failure_rates = [
@@ -217,7 +196,7 @@ def analyse_sgr_distribution(
         axes[1].bar(models, failure_rates, color=palette[:len(models)])
         axes[1].set_ylabel("Negation failure rate")
         axes[1].set_title("Failure Rate by Model")
-        axes[1].set_ylim(*_axis_limits(failure_rates, floor=0.0, ceil=1.0))
+        axes[1].set_ylim(*dynamic_axis_limits(failure_rates, floor=0.0, ceil=1.0))
 
         plt.tight_layout()
         path = os.path.join(fig_dir, "sgr_model_comparison.png")

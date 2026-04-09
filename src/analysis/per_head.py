@@ -140,6 +140,13 @@ def top_inhibition_heads(
     return results
 
 
+def select_top_heads(delta: np.ndarray, top_k: int = 10) -> List[Tuple[int, int]]:
+    """Return the top-k ``(layer, head)`` pairs from a delta matrix."""
+    _, n_heads = delta.shape
+    flat_indices = np.argsort(delta.reshape(-1))[::-1][:top_k]
+    return [(int(flat_idx // n_heads), int(flat_idx % n_heads)) for flat_idx in flat_indices]
+
+
 # ---------------------------------------------------------------------------
 # Batch version over a DataFrame of results
 # ---------------------------------------------------------------------------
@@ -193,17 +200,10 @@ def compute_head_dla_batch(
     mean_delta = accumulator / count
 
     if verbose:
-        top = top_inhibition_heads(
-            np.zeros_like(mean_delta), -mean_delta, top_k=top_k
-        )
-        # Re-compute properly
-        flat = np.argsort(mean_delta.flatten())[::-1][:top_k]
         print(f"\nTop-{top_k} inhibition heads (mean Δ DLA, positive→negated):")
         print(f"  {'Head (L,H)':<15} {'Mean ΔDLA':>10}")
         print("  " + "-" * 28)
-        for idx in flat:
-            layer = int(idx // n_heads)
-            head  = int(idx %  n_heads)
+        for layer, head in select_top_heads(mean_delta, top_k=top_k):
             print(f"  ({layer:2d}, {head:2d}){'':<8} {mean_delta[layer, head]:>10.4f}")
 
     return mean_delta

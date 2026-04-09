@@ -1,3 +1,3 @@
-from .per_head import per_head_dla, top_inhibition_heads, compute_head_dla_batch
+from .per_head import compute_head_dla_batch, per_head_dla, select_top_heads, top_inhibition_heads
 from .amplification import amplify_heads, amplification_sweep, dataset_amplification_experiment
 from .patching import activation_patching_scan, patched_prompt_metrics, dataset_activation_patching_experiment

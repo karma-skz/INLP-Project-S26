@@ -19,12 +19,13 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.analysis import compute_head_dla_batch, amplification_sweep, dataset_amplification_experiment, dataset_activation_patching_experiment
+from src.analysis import amplification_sweep, compute_head_dla_batch, dataset_activation_patching_experiment, dataset_amplification_experiment, select_top_heads
 from src.analysis.per_head import per_head_dla, plot_head_dla_heatmap
 from src.benchmark import analyse_sgr_distribution, run_benchmark
 from src.dataset import load_counterfact
 from src.metrics import compare_models, negation_failure_rate, sgr_vs_failure_correlation, summary_stats
 from src.models import load_model
+from src.utils import benchmark_csv_path, dynamic_axis_limits
 
 
 torch.manual_seed(67)
@@ -49,34 +50,6 @@ def parse_args():
     p.add_argument("--report_md", default="reports/cross_model_experiments.md", help="Markdown report path")
     return p.parse_args()
 
-
-def _safe_name(name: str) -> str:
-    return name.replace("/", "-")
-
-
-def _dynamic_ylim(values, floor: float | None = None, ceil: float | None = None, pad_ratio: float = 0.08):
-    vals = np.asarray(values, dtype=float)
-    vals = vals[np.isfinite(vals)]
-    if vals.size == 0:
-        lo, hi = 0.0, 1.0
-    else:
-        lo = float(vals.min())
-        hi = float(vals.max())
-        if np.isclose(lo, hi):
-            pad = max(abs(lo) * pad_ratio, 0.1)
-        else:
-            pad = (hi - lo) * pad_ratio
-        lo -= pad
-        hi += pad
-    if floor is not None:
-        lo = max(lo, floor)
-    if ceil is not None:
-        hi = min(hi, ceil)
-    if np.isclose(lo, hi):
-        hi = lo + 1.0
-    return lo, hi
-
-
 def _plot_cross_model_amplification(amplification_results: dict, fig_dir: str):
     os.makedirs(fig_dir, exist_ok=True)
     path = os.path.join(fig_dir, "cross_model_amplification_failure_rate.png")
@@ -91,7 +64,7 @@ def _plot_cross_model_amplification(amplification_results: dict, fig_dir: str):
     ax.set_xlabel("Amplification scale")
     ax.set_ylabel("Negation failure rate")
     ax.set_title("Dataset-level amplification effect across models")
-    ax.set_ylim(*_dynamic_ylim(all_rates, floor=0.0, ceil=1.0))
+    ax.set_ylim(*dynamic_axis_limits(all_rates, floor=0.0, ceil=1.0))
     ax.legend()
     plt.tight_layout()
     plt.savefig(path, dpi=150)
@@ -115,7 +88,7 @@ def _plot_cross_model_patching(patching_results: dict, fig_dir: str):
         ax.set_title(f"{patch_type.upper()} patch")
         ax.set_xlabel("Layer")
         ax.set_ylabel("Mean Δ target logit")
-        ax.set_ylim(*_dynamic_ylim(all_values))
+        ax.set_ylim(*dynamic_axis_limits(all_values))
 
     axes[0].legend()
     plt.tight_layout()
@@ -147,21 +120,19 @@ def main():
     os.makedirs(args.results_dir, exist_ok=True)
     os.makedirs(args.fig_dir, exist_ok=True)
 
-    safe_suffix = args.negator_suffix.strip().replace(" ", "-")
     max_samples = None if args.max_samples < 0 else args.max_samples
 
     all_dfs = []
     per_model = {}
 
     for model_name in args.models:
-        safe_model = _safe_name(model_name)
         print(f"\n{'#' * 72}")
         print(f"# Running model: {model_name}")
         print(f"{'#' * 72}\n")
 
         model = load_model(model_name)
         pairs = load_counterfact(max_samples=max_samples, model=model, negator_suffix=args.negator_suffix)
-        csv_path = os.path.join(args.results_dir, f"{safe_model}_{safe_suffix}_benchmark.csv")
+        csv_path = str(benchmark_csv_path(args.results_dir, model_name, args.negator_suffix))
         df = run_benchmark(model, pairs, model_name=model_name, output_csv=csv_path)
         df["negator"] = args.negator_suffix
         df.to_csv(csv_path, index=False)
@@ -171,12 +142,10 @@ def main():
         patch_pairs = analysis_pairs[:min(len(analysis_pairs), args.patching_samples)]
 
         mean_delta = compute_head_dla_batch(model, analysis_pairs, top_k=args.top_k_heads)
-        n_heads = model.cfg.n_heads
-        flat = mean_delta.flatten().argsort()[::-1][:args.top_k_heads]
-        top_heads = [(int(idx // n_heads), int(idx % n_heads)) for idx in flat]
+        top_heads = select_top_heads(mean_delta, top_k=args.top_k_heads)
 
         head_pos, head_neg = per_head_dla(model, CANONICAL_POSITIVE, CANONICAL_NEGATED, CANONICAL_TARGET)
-        headmap_filename = f"{safe_model}_head_dla_heatmap.png"
+        headmap_filename = f"{model_name}_head_dla_heatmap.png"
         plot_head_dla_heatmap(
             head_pos,
             head_neg,
@@ -193,7 +162,7 @@ def main():
             heads=top_heads,
             scales=args.amp_scales,
             fig_dir=args.fig_dir,
-            filename=f"{safe_model}_amplification_sweep.png",
+            filename=f"{model_name}_amplification_sweep.png",
         )
         amp_dataset = dataset_amplification_experiment(
             model,
@@ -201,7 +170,7 @@ def main():
             heads=top_heads,
             scales=args.amp_scales,
             fig_dir=args.fig_dir,
-            filename=f"{safe_model}_amplification_failure_rate.png",
+            filename=f"{model_name}_amplification_failure_rate.png",
         )
 
         patch_summary = dataset_activation_patching_experiment(
@@ -209,7 +178,7 @@ def main():
             patch_pairs,
             max_samples=None,
             fig_dir=args.fig_dir,
-            filename=f"{safe_model}_activation_patching.png",
+            filename=f"{model_name}_activation_patching.png",
             title=f"{model_name} activation patching ({len(patch_pairs)} samples)",
         )
 
@@ -233,7 +202,7 @@ def main():
     combined_csv = os.path.join(args.results_dir, "all_models_benchmark.csv")
     combined_df.to_csv(combined_csv, index=False)
 
-    sgr_summary = analyse_sgr_distribution(combined_df, fig_dir=args.fig_dir)
+    analyse_sgr_distribution(combined_df, fig_dir=args.fig_dir)
     summary = summary_stats(combined_df, verbose=False)
     corr_df = sgr_vs_failure_correlation(combined_df)
     fail_df = negation_failure_rate(combined_df)

@@ -22,36 +22,14 @@ import numpy as np
 import torch
 from transformer_lens import HookedTransformer
 
+from src.utils import dynamic_axis_limits
+
 
 PATCH_TYPE_TO_HOOK = {
     "resid": "hook_resid_post",
     "mlp": "hook_mlp_out",
     "attn": "hook_attn_out",
 }
-
-
-def _dynamic_ylim(values: Iterable[float], floor: float | None = None, ceil: float | None = None, pad_ratio: float = 0.1):
-    vals = np.asarray(list(values), dtype=float)
-    vals = vals[np.isfinite(vals)]
-    if vals.size == 0:
-        lo, hi = 0.0, 1.0
-    else:
-        lo = float(vals.min())
-        hi = float(vals.max())
-        if np.isclose(lo, hi):
-            pad = max(abs(lo) * pad_ratio, 0.1)
-        else:
-            pad = (hi - lo) * pad_ratio
-        lo -= pad
-        hi += pad
-
-    if floor is not None:
-        lo = max(lo, floor)
-    if ceil is not None:
-        hi = min(hi, ceil)
-    if np.isclose(lo, hi):
-        hi = lo + 1.0
-    return lo, hi
 
 
 def _patch_last_token(value: torch.Tensor, hook, source_cache) -> torch.Tensor:
@@ -238,7 +216,7 @@ def dataset_activation_patching_experiment(
         ax.set_title(f"{patch_type.upper()} patch")
         ax.set_xlabel("Layer")
         ax.set_ylabel("Mean Δ target logit")
-        ax.set_ylim(*_dynamic_ylim(values))
+        ax.set_ylim(*dynamic_axis_limits(values))
 
     fig.suptitle(title or f"Activation patching summary ({analysed} samples)")
     plt.tight_layout()

@@ -1,262 +1,265 @@
-# INLP Project: Negation Failures in Large Language Models
+# INLP Project: Negation Failures in Language Models
 
-## Project Overview
+This repository studies negation failure in causal language models using mechanistic interpretability tools from TransformerLens.
 
-This project studies **negation failures in large language models (LLMs)** — the "Pink Elephant" effect — using mechanistic interpretability tools (TransformerLens).
+The central question is simple:
 
-Large language models often fail to correctly handle negation. For example, when prompted with _"The capital of France is not"_, GPT-2 still assigns high probability to _"Paris"_. This project investigates **why** this happens at the circuit level by decomposing the residual stream, attributing logits to individual components, and applying causal interventions.
+- why does a model still strongly predict a factual token after seeing negation?
+- which internal components retrieve that fact?
+- which components try to suppress it?
+- can we measure and intervene on that competition?
 
-### Supported Models
+The project analyzes this with:
 
-- **GPT-2 Small** (`gpt2-small`) — 124M parameters
-- **Pythia-160M** (`pythia-160m`) — 160M parameters
+- Direct Logit Attribution (DLA)
+- the Signal-to-Gate Ratio (SGR)
+- per-head attention analysis
+- activation patching
+- inhibition-head amplification
 
-### Dataset
+## Models
 
-- [NeelNanda/counterfact-tracing](https://huggingface.co/datasets/NeelNanda/counterfact-tracing) via HuggingFace Datasets
+Supported model names:
 
----
+- `gpt2-small`
+- `gpt2-medium`
+- `gpt2-large`
+- `pythia-160m`
+- `pythia-410m`
 
 ## Repository Structure
 
-```
+```text
 INLP-Project-S26/
-├── README.md
-├── requirements.txt
-├── environment.yml
-├── transformerLenstest.py          # Single-prompt exploration (original prototype)
-├── run_pipeline.py                 # Full dataset pipeline entry point
-├── results/                        # CSV outputs from benchmark runs
-│   ├── gpt2-small_benchmark.csv
-│   └── all_models_benchmark.csv
-├── figures/                        # All generated figures
-│   ├── 01_ffn_dla_comparison.png   # Single-prompt prototype outputs
-│   ├── 02_attn_dla_comparison.png
-│   ├── 03_cumulative_dla_crossover.png
-│   ├── 04_activation_patching.png
-│   ├── 05_sgr.png
-│   ├── head_dla_heatmap.png
-│   └── main_output/                # Full-dataset pipeline outputs
-│       ├── sgr_histogram.png
-│       ├── sgr_failure_rate.png
-│       ├── per_layer_dla_mean.png
-│       ├── sgr_model_comparison.png
-│       ├── amplification_sweep.png
-│       └── amplification_failure_rate.png
-├── reports/                        # Mid-submission report
-│   ├── mid_submission.tex
-│   ├── mid_submission.pdf
-│   └── references.bib
+├── run_pipeline.py
+├── run_cross_model_experiments.py
+├── run_qualitative_analysis.py
+├── run_multi_model_qualitative_report.py
+├── figures/
+├── reports/
+│   ├── final/
+│   ├── cross_model_experiments.md
+│   ├── qualitative_analysis.md
+│   └── qualitative_multimodel_report.md
 └── src/
-    ├── dataset/
-    │   └── load_dataset.py         # Loads CounterFact, builds PromptPair objects
-    ├── models/
-    │   └── load_models.py          # Model loader (gpt2-small, pythia-160m)
-    ├── benchmark/
-    │   ├── run_benchmark.py        # DLA + SGR over full dataset → CSV
-    │   └── sgr_analysis.py         # SGR distribution figures
     ├── analysis/
-    │   ├── per_head.py             # Per-attention-head DLA, inhibition head detection
-    │   └── amplification.py        # Artificial amplification experiment
-    └── metrics/
-        └── metrics.py              # Statistical tests (Spearman, Mann-Whitney, CIs)
+    ├── benchmark/
+    ├── dataset/
+    ├── metrics/
+    ├── models/
+    ├── reporting/
+    └── utils/
 ```
-
----
 
 ## Setup
 
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/karma-skz/INLP-Project-S26.git
-cd INLP-Project-S26
-```
-
-### 2. Create and activate the conda environment
+Using conda:
 
 ```bash
 conda env create -f environment.yml
 conda activate inlp-project
 ```
 
-Or using pip:
+Using pip:
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+## Quick Start
 
-## Running the Pipeline
-
-### Full dataset pipeline (recommended)
+Run the default pipeline on `gpt2-small` with a small sample:
 
 ```bash
-# GPT-2 Small, 200 samples (default — fast)
 python run_pipeline.py
+```
 
-# Both models, full dataset
+This generates:
+
+- benchmark CSVs in `results/`
+- figures in `figures/`
+- printed summary statistics in the terminal
+
+The most important files after a run are usually:
+
+- `results/gpt2-small_not_benchmark.csv`
+- `results/all_models_benchmark.csv`
+- `figures/sgr_histogram.png`
+- `figures/sgr_failure_rate.png`
+- `figures/per_layer_dla_mean.png`
+- `figures/head_dla_heatmap.png`
+- `figures/amplification_sweep.png`
+- `figures/amplification_failure_rate.png`
+
+## Main Experiment Pipeline
+
+Run the main benchmark:
+
+```bash
+python run_pipeline.py
+```
+
+Run both default models on the full dataset:
+
+```bash
 python run_pipeline.py --models gpt2-small pythia-160m --max_samples -1
+```
 
-# Skip slow stages (useful for quick re-runs)
+Run a faster version that skips the slower head-level and amplification stages:
+
+```bash
 python run_pipeline.py --skip_per_head --skip_amplification
 ```
 
-**CLI options:**
+Useful options:
 
-| Flag | Default | Description |
-|---|---|---|
-| `--models` | `gpt2-small` | Space-separated list of models to benchmark |
-| `--max_samples` | `200` | CounterFact samples per model (`-1` = all 21 919) |
-| `--results_dir` | `results/` | Directory for CSV outputs |
-| `--fig_dir` | `figures/` | Directory for figures |
-| `--top_k_heads` | `10` | How many inhibition heads to select for amplification |
-| `--amp_scales` | `0.5 1 2 3 4` | Amplification scale values to sweep |
-| `--skip_per_head` | off | Skip Stage 5 (per-head decomposition) |
-| `--skip_amplification` | off | Skip Stage 6 (amplification experiment) |
+- `--models` selects one or more models
+- `--max_samples -1` uses the full dataset
+- `--negator_suffix` lets you test alternative negation strings
+- `--results_dir` changes where CSVs are saved
+- `--fig_dir` changes where figures are saved
 
-### Single-prompt prototype
+### What the pipeline does
+
+`run_pipeline.py` performs these stages:
+
+1. loads model(s)
+2. loads CounterFact prompt pairs
+3. computes benchmark metrics including DLA and SGR
+4. generates SGR distribution plots
+5. identifies top inhibition heads
+6. runs amplification experiments
+7. prints statistical summaries
+
+### Where to look after running
+
+Open the benchmark CSVs in `results/` to inspect per-example outputs such as:
+
+- `pos_target_rank`
+- `neg_target_rank`
+- `negation_failure`
+- `retrieval_strength`
+- `inhibition_strength`
+- `sgr`
+- `crossover_layer`
+
+Open the figures in `figures/` to inspect aggregate behavior across the run.
+
+## Cross-Model Experiment Report
+
+To run a more complete cross-model comparison and write a report:
 
 ```bash
-python transformerLenstest.py
+python run_cross_model_experiments.py --models gpt2-small pythia-160m --max_samples -1
 ```
 
-Runs all 7 analysis phases on one hardcoded prompt pair and saves figures to `figures/`.
+This writes:
 
----
+- per-model CSVs to `results/cross_model/`
+- cross-model figures to `figures/cross_model/`
+- a markdown summary to `reports/cross_model_experiments.md`
 
-## Single-Prompt Pipeline (`transformerLenstest.py`)
+Useful outputs from this run include:
 
-Runs all analysis phases on one hardcoded prompt pair:
+- `results/cross_model/all_models_benchmark.csv`
+- `figures/cross_model/sgr_model_comparison.png`
+- `figures/cross_model/cross_model_amplification_failure_rate.png`
+- `figures/cross_model/cross_model_activation_patching.png`
+- `reports/cross_model_experiments.md`
 
-- **Positive**: `"The capital of France is"` → target: `" Paris"`
-- **Negated**: `"The capital of France is not"` → should NOT predict `" Paris"`
+## Qualitative Reports
 
-### Phase 0 — Setup
-Loads GPT-2 Small via TransformerLens and defines the prompt pair.
+To build a qualitative report from an existing benchmark CSV:
 
-### Phase 1 — Behavioural Comparison
-Checks surface-level output: where does `" Paris"` rank for each prompt? A high rank on the negated prompt confirms the **negation failure**.
-
-### Phase 2 — Residual Stream Decomposition
-Uses `cache.decompose_resid()` to break the final residual stream into each component's (embedding, attention, FFN) individual contribution — essentially "who wrote what" into the model's working memory.
-
-### Phase 3 — Direct Logit Attribution (DLA) 
-The heart of the project. Since the residual stream is a sum of all component outputs, the final logit for any token $t$ can be attributed component-by-component:
-
-$$\text{logit}(t) = \sum_{c} \mathbf{r}_c \cdot \mathbf{W}_U[:, t]$$
-
-- **Positive DLA** → component pushes the model *toward* `" Paris"`
-- **Negative DLA** → component pushes the model *away from* `" Paris"`
-
-### Phase 4 — Memory vs Inhibition Separation
-Components are split into two camps:
-- **FFN layers** = Memory/Retrieval (Geva et al.'s "key-value stores")
-- **Attention layers** = Logic/Inhibition (Hanna et al.'s "inhibition heads")
-
-**Key hypothesis**: FFN DLA values should be nearly identical between positive and negated prompts (retrieval is logic-blind), while attention DLA should differ dramatically (where negation processing happens, or fails to).
-
-### Phase 5 — Signal-to-Gate Ratio (SGR) Novel Metric
-
-$$\text{SGR} = \frac{|\text{FFN layers pushing toward target}|}{|\text{Attn layers pushing away from target}|}$$
-
-- $\text{SGR} > 1$ → memory overwhelms logic → **hallucination / negation failure**
-- $\text{SGR} < 1$ → logic successfully suppresses → **correct behaviour**
-
-The **crossover point** (Phase 5b) plots cumulative DLA layer-by-layer to show whether inhibition ever overcomes retrieval.
-
-### Phase 6 — Activation Patching (Causal Intervention)
-For each layer, the negated-prompt activation is swapped with the positive-prompt activation and the change in target logit is measured. Large positive Δ identifies layers causally responsible for negation processing. Performed separately for residual stream, MLP outputs, and attention outputs.
-
-### Phase 7 — Visualization
-Saves 5 publication-quality figures to `figures/`:
-
-| File | Content |
-|---|---|
-| `01_ffn_dla_comparison.png` | FFN DLA: positive vs negated |
-| `02_attn_dla_comparison.png` | Attention DLA: positive vs negated |
-| `03_cumulative_dla_crossover.png` | Cumulative DLA with crossover point |
-| `04_activation_patching.png` | Activation patching results (3-panel) |
-| `05_sgr.png` | SGR bar chart |
-
----
-
-## Full Dataset Pipeline (`run_pipeline.py`)
-
-Runs all stages over the complete CounterFact dataset on one or more models.
-
-### Stage 1 — Model Loading
-Loads the specified model(s) via TransformerLens with `use_attn_result=True` (required for per-head hooks), LayerNorm folding, and centred weights for exact DLA.
-
-### Stage 2 — Dataset Loading
-Loads [NeelNanda/counterfact-tracing](https://huggingface.co/datasets/NeelNanda/counterfact-tracing) from HuggingFace. Builds `PromptPair` objects (positive + negated prompt, target token). Skips entries where the target is not a single token.
-
-### Stage 3 — Benchmark (DLA + SGR per prompt pair)
-Runs the full DLA + SGR analysis on every prompt pair and saves results to `results/{model}_benchmark.csv` (one row per pair, including per-layer DLA arrays).
-
-### Stage 4 — SGR Distribution Analysis
-Analyses the Signal-to-Gate Ratio distribution across the dataset.
-
-$$\text{SGR} = \frac{|\text{FFN DLA pushing toward target}|}{|\text{Attn DLA pushing away from target}|}$$
-
-- $\text{SGR} > 1$ → memory overwhelms inhibition → **negation failure**
-- $\text{SGR} < 1$ → inhibition overrides memory → **correct suppression**
-
-Produces: `figures/main_output/sgr_histogram.png`, `figures/main_output/sgr_failure_rate.png`, `figures/main_output/per_layer_dla_mean.png`, `figures/main_output/sgr_model_comparison.png` (multi-model runs only)
-
-### Stage 5 — Per-Head Decomposition
-Identifies specific **inhibition heads** — attention heads whose DLA drops most dramatically from the positive to the negated prompt — by computing mean ΔDLA across the dataset.
-
-Produces: `figures/head_dla_heatmap.png`
-
-### Stage 6 — Artificial Amplification
-Scales the outputs of the top inhibition heads by 0.5×, 2×, 3×, … and measures whether this reduces the negation failure rate across the dataset.
-
-Produces: `figures/main_output/amplification_sweep.png`, `figures/main_output/amplification_failure_rate.png`
-
-### Stage 7 — Statistical Analysis
-- Spearman / point-biserial correlation of SGR with negation failure flag
-- Mann-Whitney U test comparing SGR distributions of failures vs successes
-- Bootstrap 95% confidence intervals on failure rates
-- Cross-model significance test (two-proportion z-test + Mann-Whitney on SGR)
-
----
-
-## Key Metrics
-
-| Metric | Definition |
-|---|---|
-| **Negation Failure Rate** | Fraction of prompts where the model still top-ranks the forbidden target after negation |
-| **SGR** | FFN retrieval signal / attention inhibition signal; SGR > 1 predicts failure |
-| **ΔDLA (per head)** | Drop in head DLA from positive → negated prompt; large Δ = inhibition head |
-| **Crossover Layer** | Layer where cumulative inhibition first exceeds cumulative retrieval (or never does) |
-
----
-
-## Reproducibility
-
-Fixed seed throughout:
-
-```python
-torch.manual_seed(67)
-```
-
-The full codebase is available at [https://github.com/karma-skz/INLP-Project-S26](https://github.com/karma-skz/INLP-Project-S26). To reproduce the core results:
 ```bash
-conda activate inlp-project
-python run_pipeline.py \
-  --models gpt2-small pythia-160m \
-          gpt2-medium gpt2-large \
-          pythia-410m \
-  --max_samples -1
+python run_qualitative_analysis.py
 ```
-Post-hoc analyses:
+
+This writes a markdown case-study report to:
+
+- `reports/qualitative_analysis.md`
+
+To compare shared cases across multiple models:
+
 ```bash
-python sgr_lt1_verification.py
-python hard_negation_audit.py
-python crossover_analysis.py
-python extended_amplification.py
-python activation_patching.py
+python run_multi_model_qualitative_report.py --results_dir results/cross_model
 ```
-Dependencies are listed in `requirements.txt` (PyTorch, TransformerLens, HuggingFace Datasets, matplotlib, seaborn, scipy).
+
+This writes:
+
+- `reports/qualitative_multimodel_report.md`
+
+These reports are useful if you want to inspect example prompts, token ranks, top predictions, and patching behavior for specific cases instead of only looking at aggregate figures.
+
+## Post-Hoc Analyses
+
+The `src.reporting` modules run additional analyses from existing benchmark outputs.
+
+Run crossover analysis:
+
+```bash
+python -m src.reporting.crossover
+```
+
+Outputs:
+
+- `figures/crossover_layer_dist.png`
+- `figures/crossover_vs_failure.png`
+- `figures/crossover_vs_sgr.png`
+
+Run the semantic audit:
+
+```bash
+python -m src.reporting.semantic_audit
+```
+
+Outputs:
+
+- `figures/audit_relation_failure_rates.png`
+- `figures/audit_prompt_structure.png`
+- `figures/audit_sgr_by_relation.png`
+
+Run SGR verification:
+
+```bash
+python -m src.reporting.sgr_verification
+```
+
+Outputs:
+
+- `figures/sgr_lt1_verification.png`
+- `figures/sgr_lt1_by_negation.png`
+
+Run dataset-scale activation patching:
+
+```bash
+python -m src.reporting.activation_patching
+```
+
+Output:
+
+- `figures/activation_patching_rescue_rate.png`
+
+Run the extended amplification comparison:
+
+```bash
+python -m src.reporting.extended_amplification
+```
+
+Output:
+
+- `figures/extended_amplification.png`
+
+## Final Report
+
+The final written report is in:
+
+- `reports/final/final_report.tex`
+- `reports/final/final_report.pdf`
+
+If you want the fastest path through the repo, start with:
+
+1. `python run_pipeline.py`
+2. open `results/all_models_benchmark.csv`
+3. inspect the figures in `figures/`
+4. read `reports/final/final_report.pdf`
