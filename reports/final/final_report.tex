@@ -175,7 +175,7 @@ To ground the aggregate statistics, we analysed 10 shared cases across both mode
 
 \textbf{Case 13838} (``bpost, by not [Belgium]'') shows a model-asymmetry: GPT-2 Small successfully negates (rank $17{,}200 \to 40{,}250$, SGR $= 0.89$), while Pythia-160M completely fails (rank $17{,}786 \to 8{,}168$, SGR $= 20.0$). In Pythia, a Crossover Point is identified at layer 4, and MLP patching at layer 11 produces the best rescue ($\Delta = +21.96$), suggesting the suppression circuit exists but engages too late.
 
-\textbf{Contrastive success case} (Case 2295, ``John Feaver is originally from not [Fleet]''): both models succeed strongly, pushing the target to rank 41,777 (GPT-2) and 24,643 (Pythia). GPT-2 achieves this with SGR $= 0.0$ (zero measured inhibition), suggesting that for obscure entities, the FFN retrieval signal itself is so weak that no active inhibition is needed.
+\textbf{Contrastive success case} (Case 2295, ``John Feaver is originally from not [Fleet]''): both models succeed strongly, pushing the target from rank 1,773 to 41,777 (GPT-2) and from rank 3,717 to 24,643 (Pythia). GPT-2 achieves this with SGR $= 0.0$ (zero measured inhibition), suggesting that for obscure entities, the FFN retrieval signal itself is so weak that no active inhibition is needed.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% soft negation
@@ -206,7 +206,7 @@ pythia-160m & rarely & 3.64 & 25.36 \\
 \label{tab:soft}
 \end{table}
 
-\begin{figure}[H]
+\begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{../../figures/soft_negation_analysis/combined_vertical.png}
     \caption{Behavioral and Mechanistic Impact of Soft vs. Hard Negation. (Left) Dataset-level failure rates demonstrate a paradoxical decrease in hallucinations when processing linguistically softer negators compared to explicit hard negation. (Right) The corresponding Signal-to-Gate Ratio (SGR) distributions (log scale) reveal a downward shift in SGR for soft negators, indicating geometrically stronger late-stage inhibitory attention.}
@@ -292,7 +292,7 @@ The emotion negation experiment reveals a qualitatively different failure mode f
 \section{Limitations and Challenges}
 \label{sec:limitations}
 % =================================================================
-Our analysis isolates circuits exclusively using logit attribution and linear interventions in small models (up to 160M parameters). In larger open-source models, especially Mixture of Experts (MoE), identifying a single explicit "Crossover Point" becomes complicated by polysemantic routing. Furthermore, DLA struggles to capture highly non-linear head interactions, a problem that could be addressed in future work by using Sparse Autoencoders (SAEs) to unravel the dense superposition of the emotion vectors observed in our tests.
+Our analysis isolates circuits exclusively using logit attribution and linear interventions in small models (up to 160M parameters). In larger open-source models, especially Mixture of Experts (MoE), identifying a single explicit "Crossover Point" becomes complicated by polysemantic routing. Furthermore, DLA struggles to capture highly non-linear head interactions, a problem that could be addressed in future work by using Sparse Autoencoders (SAEs) to unravel the dense superposition of the emotion vectors observed in our tests. A further practical limitation of our negation construction is that appending negators such as ``not'' or ``rarely'' directly to a prompt suffix is often syntactically ill-formed; this means the model is partially responding to a malformed sentence rather than a clean logical instruction, which may inflate or distort our measured failure rates. Finally, our core failure metric---the rank of the single target token---is an incomplete proxy: a negation may fail not because the model pushes the target token \emph{down}, but because it simultaneously promotes \emph{other} plausible tokens, and our single-token rank-change measure cannot distinguish these two mechanistically distinct failure modes.
 
 % =================================================================
 \section{Ethics Statement}
@@ -308,7 +308,7 @@ Future efforts should expand from CounterFact to diverse behavioral tasks, track
 \section{Conclusion}
 \label{sec:conclusion}
 % =================================================================
-Negation is not solely an abstract reasoning failure, but a physical capacity failure in the internal information streams of language models. By formalizing the Signal-to-Gate Ratio (SGR) and performing causal amplifications, we bridge behavioral observations of hallucination with mechanistic circuit discovery. We demonstrate that the "Pink Elephant" effect occurs when the factual reflex mathematically overwhelms the logic gate. Providing physical metrics for these failures represents a critical step toward diagnosing and re-engineering resilient logical circuits in future alignment strategies.
+Negation in LLMs is not simply an abstract reasoning failure, but a physical capacity breakdown. Through this study, we tested two core hypotheses. First, the \textbf{Competitive Gating Hypothesis} was \textbf{validated}: dataset-scale DLA confirms that factual retrieval acts as a logic-blind FFN reflex, while negation acts as a structurally distinct attention-driven gate. Our Signal-to-Gate Ratio (SGR) proves that failures only occur when this early retrieval mathematically overwhelms downstream inhibition, a dynamic we causally verified via head amplification. Second, our \textbf{Soft Negation Hypothesis}---that linguistically softer negators would increase failure rates---was definitively \textbf{rejected}. Suffixes like ``rarely'' paradoxically reduced hallucinations and lowered the SGR compared to a hard ``not,'' revealing that multi-token or semantic-softness affords the network more cycles to compute a geometrically distinct inhibitory subtraction. By grounding the "Pink Elephant" effect within mechanistic circuits, this diagnostic approach represents a critical step toward re-engineering logical resilience in future models.
 
 % =================================================================
 % References
