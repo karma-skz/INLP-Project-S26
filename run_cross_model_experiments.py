@@ -39,6 +39,11 @@ def parse_args():
     parser.add_argument("--amp_scales", nargs="+", type=float, default=[0.5, 1.0, 2.0, 4.0], help="Amplification scales")
     parser.add_argument("--results_dir", default="results/cross_model", help="Output directory for CSVs")
     parser.add_argument("--report_md", default="reports/cross_model_experiments.md", help="Markdown report path")
+    parser.add_argument(
+        "--report_only",
+        action="store_true",
+        help="Regenerate markdown report from existing CSVs in --results_dir without rerunning experiments",
+    )
     return parser.parse_args()
 
 
@@ -70,81 +75,76 @@ def _top_heads_string(top_heads: list[tuple[int, int]], limit: int = 5) -> str:
     return ", ".join(f"({layer},{head})" for layer, head in preview) + suffix
 
 
-def _supportive_findings(
+def _read_optional_csv(path: str) -> pd.DataFrame:
+    return pd.read_csv(path) if os.path.exists(path) else pd.DataFrame()
+
+
+def _build_report_lines(
+    *,
+    model_names: list[str],
+    args: argparse.Namespace,
+    combined_csv: str,
     benchmark_df: pd.DataFrame,
+    outcome_df: pd.DataFrame,
     mismatch_df: pd.DataFrame,
+    head_df: pd.DataFrame,
     amplification_df: pd.DataFrame,
     patching_df: pd.DataFrame,
 ) -> list[str]:
-    findings: list[str] = []
-
-    for _, row in benchmark_df.iterrows():
-        if pd.notna(row["failure_median_sgr"]) and pd.notna(row["success_median_sgr"]) and row["failure_median_sgr"] > row["success_median_sgr"]:
-            findings.append(
-                f"`{row['model_name']}` shows higher median SGR in failures than successes "
-                f"({row['failure_median_sgr']:.2f} vs {row['success_median_sgr']:.2f}), which supports the retrieval-over-inhibition story."
+    report_lines = [
+        "# Cross-Model Experiment Report",
+        "",
+        "- Models rerun: " + ", ".join(f"`{model_name}`" for model_name in model_names),
+        f"- Negator suffix: `{args.negator_suffix}`",
+        f"- Benchmark samples per model: `{args.max_samples if args.max_samples >= 0 else 'all available'}`",
+        f"- Per-model benchmark CSVs: `{args.results_dir}`",
+        f"- Combined benchmark CSV: `{combined_csv}`",
+        "",
+        "## Benchmark Summary Metrics",
+        "",
+    ]
+    if not benchmark_df.empty:
+        report_lines.extend(
+            _markdown_table(
+                benchmark_df[
+                    [
+                        "model_name",
+                        "n_samples",
+                        "n_failures",
+                        "failure_rate",
+                        "median_rank_shift",
+                        "median_sgr",
+                        "success_median_sgr",
+                        "failure_median_sgr",
+                    ]
+                ],
+                float_cols={"failure_rate", "median_rank_shift", "median_sgr", "success_median_sgr", "failure_median_sgr"},
             )
-
-    for _, row in amplification_df.iterrows():
-        if pd.notna(row["absolute_improvement"]) and row["absolute_improvement"] > 0:
-            findings.append(
-                f"`{row['model_name']}` improves under head amplification: failure rate drops from "
-                f"{row['baseline_rate']:.1%} to {row['best_rate']:.1%} at scale {row['best_scale']:.2f}."
-            )
-
-    for _, row in patching_df.iterrows():
-        if pd.notna(row["best_delta"]) and row["best_delta"] > 0:
-            findings.append(
-                f"`{row['model_name']}` has a positive mean patching effect, strongest for "
-                f"{row['best_patch_type']} at layer {int(row['best_layer'])} (Δ logit {row['best_delta']:+.3f})."
-            )
-
-    for _, row in mismatch_df.iterrows():
-        if pd.notna(row["failure_mismatch_rate"]) and row["failure_mismatch_rate"] < 0.1:
-            findings.append(
-                f"`{row['model_name']}` rarely produces failure cases with SGR <= 1 "
-                f"({row['failure_mismatch_rate']:.1%}), so the metric usually points in the right direction for failures."
-            )
-
-    return findings
-
-
-def _contradictory_findings(
-    benchmark_df: pd.DataFrame,
-    mismatch_df: pd.DataFrame,
-    amplification_df: pd.DataFrame,
-) -> list[str]:
-    findings: list[str] = []
-
-    for _, row in mismatch_df.iterrows():
-        if pd.notna(row["success_mismatch_rate"]) and row["success_mismatch_rate"] > 0:
-            findings.append(
-                f"`{row['model_name']}` still has many successful suppressions with SGR > 1 "
-                f"({row['success_mismatch_rate']:.1%} of successes), so SGR is a useful trend metric, not a clean decision rule."
-            )
-        if pd.notna(row["failure_mismatch_rate"]) and row["failure_mismatch_rate"] > 0:
-            findings.append(
-                f"`{row['model_name']}` also includes some failure cases with SGR <= 1 "
-                f"({row['failure_mismatch_rate']:.1%} of failures), which weakens any strict threshold claim."
-            )
-
-    for _, row in amplification_df.iterrows():
-        if pd.notna(row["best_rate"]) and row["best_rate"] > 0:
-            findings.append(
-                f"`{row['model_name']}` is not fully rescued by amplification; even the best scale leaves a "
-                f"{row['best_rate']:.1%} failure rate."
-            )
-
-    failure_order = benchmark_df.sort_values("failure_rate", ascending=False)
-    if len(failure_order) >= 2:
-        worst = failure_order.iloc[0]
-        best = failure_order.iloc[-1]
-        findings.append(
-            f"Model differences remain large: `{worst['model_name']}` fails more often than `{best['model_name']}` "
-            f"({worst['failure_rate']:.1%} vs {best['failure_rate']:.1%}), so the story is not equally strong across architectures."
         )
+    else:
+        report_lines.extend(["(no data)", ""])
 
-    return findings
+    report_lines.extend(["## Outcome Metrics", ""])
+    report_lines.extend(_markdown_table(outcome_df, float_cols={"median_rank_shift", "median_sgr"}))
+
+    report_lines.extend(["## SGR Edge Case Metrics", ""])
+    report_lines.extend(_markdown_table(mismatch_df, float_cols={"success_mismatch_rate", "failure_mismatch_rate"}))
+
+    report_lines.extend(["## Head Selection Metrics", ""])
+    report_lines.extend(_markdown_table(head_df))
+
+    report_lines.extend(["## Amplification Metrics", ""])
+    report_lines.extend(
+        _markdown_table(
+            amplification_df,
+            float_cols={"baseline_rate", "best_rate", "best_scale", "absolute_improvement"},
+        )
+    )
+
+    report_lines.extend(["## Activation Patching Metrics", ""])
+    report_lines.extend(_markdown_table(patching_df, float_cols={"best_layer", "best_delta"}))
+
+    return report_lines
 
 
 def main():
@@ -153,6 +153,41 @@ def main():
 
     model_names = [MODEL_SHORTNAMES.get(model_name, model_name) for model_name in args.models]
     max_samples = None if args.max_samples < 0 else args.max_samples
+
+    if args.report_only:
+        combined_csv = os.path.join(args.results_dir, "all_models_benchmark.csv")
+
+        benchmark_df = _read_optional_csv(os.path.join(args.results_dir, "benchmark_summary.csv"))
+        outcome_df = _read_optional_csv(os.path.join(args.results_dir, "benchmark_outcome_summary.csv"))
+        mismatch_df = _read_optional_csv(os.path.join(args.results_dir, "benchmark_edge_cases.csv"))
+        head_df = _read_optional_csv(os.path.join(args.results_dir, "head_summary.csv"))
+        amplification_df = _read_optional_csv(os.path.join(args.results_dir, "amplification_summary.csv"))
+        patching_df = _read_optional_csv(os.path.join(args.results_dir, "patching_summary.csv"))
+
+        if (benchmark_df.empty or outcome_df.empty or mismatch_df.empty) and os.path.exists(combined_csv):
+            combined_df = pd.read_csv(combined_csv)
+            sgr_summary = analyse_sgr_distribution(combined_df, verbose=False)
+            benchmark_df = sgr_summary["benchmark_summary"].sort_values("failure_rate", ascending=False).reset_index(drop=True)
+            outcome_df = sgr_summary["outcome_summary"].sort_values(["model_name", "outcome"]).reset_index(drop=True)
+            mismatch_df = sgr_summary["edge_cases"].sort_values("model_name").reset_index(drop=True)
+
+        report_lines = _build_report_lines(
+            model_names=model_names,
+            args=args,
+            combined_csv=combined_csv,
+            benchmark_df=benchmark_df,
+            outcome_df=outcome_df,
+            mismatch_df=mismatch_df,
+            head_df=head_df,
+            amplification_df=amplification_df,
+            patching_df=patching_df,
+        )
+
+        report_path = Path(args.report_md)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text("\n".join(report_lines), encoding="utf-8")
+        print(f"Saved cross-model markdown report -> {report_path}")
+        return
 
     per_model_steps = 6
     finalization_steps = 10
@@ -280,110 +315,17 @@ def main():
     patching_df.to_csv(os.path.join(args.results_dir, "patching_summary.csv"), index=False)
 
     current_step += 1
-    _progress(current_step, total_steps, "Extracting supporting findings")
-    support_lines = _supportive_findings(benchmark_df, mismatch_df, amplification_df, patching_df)
-
-    current_step += 1
-    _progress(current_step, total_steps, "Extracting contradictory findings")
-    contradiction_lines = _contradictory_findings(benchmark_df, mismatch_df, amplification_df)
-
-    current_step += 1
     _progress(current_step, total_steps, "Assembling markdown report sections")
-    report_lines = [
-        "# Cross-Model Experiment Report",
-        "",
-        "- Models rerun: " + ", ".join(f"`{model_name}`" for model_name in model_names),
-        f"- Negator suffix: `{args.negator_suffix}`",
-        f"- Benchmark samples per model: `{args.max_samples if args.max_samples >= 0 else 'all available'}`",
-        f"- Per-model benchmark CSVs: `{args.results_dir}`",
-        f"- Combined benchmark CSV: `{combined_csv}`",
-        "",
-        "## Benchmark Summary",
-        "",
-    ]
-    report_lines.extend(
-        _markdown_table(
-            benchmark_df[
-                [
-                    "model_name",
-                    "n_samples",
-                    "n_failures",
-                    "failure_rate",
-                    "median_rank_shift",
-                    "median_sgr",
-                    "success_median_sgr",
-                    "failure_median_sgr",
-                ]
-            ],
-            float_cols={"failure_rate", "median_rank_shift", "median_sgr", "success_median_sgr", "failure_median_sgr"},
-        )
-    )
-    report_lines.extend(
-        [
-            "Interpretation:",
-            "",
-            "- `median_rank_shift` is `neg_target_rank - pos_target_rank`; positive values mean negation usually pushes the factual token downward.",
-            "- `success_median_sgr` and `failure_median_sgr` show whether the SGR ordering matches the behavioural split.",
-            "",
-            "## SGR Edge Cases",
-            "",
-        ]
-    )
-    report_lines.extend(
-        _markdown_table(
-            mismatch_df,
-            float_cols={"success_mismatch_rate", "failure_mismatch_rate"},
-        )
-    )
-    report_lines.extend(
-        [
-            "Interpretation:",
-            "",
-            "- `success_with_sgr_gt1` counts cases where the model suppresses the target even though SGR is above 1.",
-            "- `failure_with_sgr_le1` counts cases that go against the simple SGR-threshold story.",
-            "",
-            "## Head Selection and Interventions",
-            "",
-        ]
-    )
-    report_lines.extend(_markdown_table(head_df))
-    report_lines.extend(
-        _markdown_table(
-            amplification_df,
-            float_cols={"baseline_rate", "best_rate", "best_scale", "absolute_improvement"},
-        )
-    )
-    report_lines.extend(
-        _markdown_table(
-            patching_df,
-            float_cols={"best_layer", "best_delta"},
-        )
-    )
-    report_lines.extend(
-        [
-            "## What Helps Our Story",
-            "",
-        ]
-    )
-    report_lines.extend([f"- {line}" for line in support_lines] or ["- No strong supporting pattern emerged in this rerun."])
-    report_lines.extend(
-        [
-            "",
-            "## What Weakens Our Story",
-            "",
-        ]
-    )
-    report_lines.extend([f"- {line}" for line in contradiction_lines] or ["- No obvious contradictory pattern emerged in this rerun."])
-    report_lines.extend(
-        [
-            "",
-            "## Notes",
-            "",
-            "- No graphs are generated by this report. The evidence is intentionally reduced to tables and concise observations.",
-            "- The strongest intervention evidence comes from dataset-level head amplification and activation patching, both run on capped subsets for tractability.",
-            "- Pair filtering still depends on single-token targets for each tokenizer, so sample counts differ by model.",
-            "",
-        ]
+    report_lines = _build_report_lines(
+        model_names=model_names,
+        args=args,
+        combined_csv=combined_csv,
+        benchmark_df=benchmark_df,
+        outcome_df=outcome_df,
+        mismatch_df=mismatch_df,
+        head_df=head_df,
+        amplification_df=amplification_df,
+        patching_df=patching_df,
     )
 
     report_path = Path(args.report_md)

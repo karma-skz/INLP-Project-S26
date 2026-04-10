@@ -27,7 +27,8 @@ def parse_args():
     parser.add_argument("--negator_suffix", default=" not", help="Negator suffix used in the benchmark CSVs")
     parser.add_argument("--examples_per_model", type=int, default=3, help="Representative cases per model")
     parser.add_argument("--top_k_predictions", type=int, default=5, help="Top-k next-token predictions to show")
-    parser.add_argument("--output_dir", default="reports", help="Output directory for metric CSVs and plots")
+    parser.add_argument("--metrics_output_dir", default="results", help="Output directory for metric CSV files")
+    parser.add_argument("--figures_output_dir", default="figures", help="Output directory for plots/graphs")
     return parser.parse_args()
 
 
@@ -148,8 +149,10 @@ def _save_metric_plots(summary_df: pd.DataFrame, case_df: pd.DataFrame, output_d
 
 def main():
     args = parse_args()
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_output_dir = Path(args.metrics_output_dir)
+    figures_output_dir = Path(args.figures_output_dir)
+    metrics_output_dir.mkdir(parents=True, exist_ok=True)
+    figures_output_dir.mkdir(parents=True, exist_ok=True)
 
     model_summary_rows: list[dict[str, object]] = []
     case_metric_rows: list[dict[str, object]] = []
@@ -236,11 +239,11 @@ def main():
 
     summary_df = pd.DataFrame(model_summary_rows)
     case_df = pd.DataFrame(case_metric_rows)
-    summary_csv_path = output_dir / "qualitative_metrics_summary.csv"
-    case_csv_path = output_dir / "qualitative_case_metrics.csv"
+    summary_csv_path = metrics_output_dir / "qualitative_metrics_summary.csv"
+    case_csv_path = metrics_output_dir / "qualitative_case_metrics.csv"
     summary_df.to_csv(summary_csv_path, index=False)
     case_df.to_csv(case_csv_path, index=False)
-    plot_paths = _save_metric_plots(summary_df, case_df, output_dir)
+    plot_paths = _save_metric_plots(summary_df, case_df, figures_output_dir)
 
     print(f"Saved summary metrics CSV -> {summary_csv_path}")
     print(f"Saved case-level metrics CSV -> {case_csv_path}")
