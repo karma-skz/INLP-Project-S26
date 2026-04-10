@@ -136,9 +136,9 @@ The SGR exhibits a clear bifurcation by outcome for GPT-2 Small. Successful nega
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\linewidth]{../../figures/cross_model/sgr_failure_rate.png}
-    \caption{Failure rates grouped by SGR bin across both models.}
-    \label{fig:sgr_distribution}
+    \includegraphics[width=\linewidth]{../../figures/cross_model/sgr_histogram.png}
+    \caption{SGR distribution across CounterFact representations. Failures concentrate exclusively strictly to the right of SGR\,=\,1.}
+    \label{fig:sgrhist}
 \end{figure}
 
 The SGR edge-case analysis reinforces this asymmetry: for GPT-2 Small, \textbf{0 failures occur at SGR $\leq$ 1} (failure mismatch rate = 0.00\%). However, 56.1\% of successes occur at SGR $> 1$ — confirming that high SGR is necessary but not sufficient for failure. For Pythia-160M, the mismatch is even more extreme: 93.97\% of successes occur at SGR $> 1$, indicating that Pythia overwhelmingly navigates negation even when the retrieval signal is quantitatively stronger than the measured inhibition.
@@ -148,14 +148,6 @@ Heads were ranked by mean negative DLA over the 1,000-pair analysis subset. For 
 
 \subsubsection{Inhibition Head Amplification}
 We amplified the output of the top 5 inhibition heads by a scale factor $\lambda \in [1.0, 4.0]$. At $\lambda = 4.0$, the failure rate on the 1,000-pair subset dropped from \textbf{10.60\%} to \textbf{5.50\%} for GPT-2 Small (absolute improvement: 5.1pp) and from \textbf{7.80\%} to \textbf{3.40\%} for Pythia-160M (absolute improvement: 4.4pp). This intervention provides causal evidence that the identified heads are directly responsible for a portion of negation failures.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=\linewidth]{../../figures/cross_model/amplification_summary.png}
-    \caption{Reduction in failure rate when artificially multiplying the output of identified inhibition heads.}
-    \label{fig:amplification}
-\end{figure}
-
 \subsubsection{Activation Patching}
 Dataset-scale activation patching reveals that residual-stream patching at a single layer produces the most effective rescue of negation behavior. For \texttt{gpt2-small}, fully patching the residual stream at \textbf{layer 9} produces the highest rank-shift delta of $+3.69$ logit units. MLP-level patching peaks at Layer 0 ($+2.90$) while attention-level patching peaks at Layer 2 ($+0.22$). For \texttt{pythia-160m}, the best layer is \textbf{layer 3} with a residual-stream delta of $+5.34$, MLP peaks at Layer 0 ($+2.68$) and attention at Layer 8 ($+0.23$). The large MLP effect at Layer 0 for both models suggests that very early layers establish a strong factual prior that dominates the residual stream from the beginning.
 
@@ -256,6 +248,13 @@ In \texttt{gpt2-small}, Anger ($R^2 = 0.978$), Fear ($R^2 = 0.979$), and Sadness
 
 \subsection{When is Recall Logic-Blind?}
 The per-layer DLA means confirm the core premise of the Competitive Gating Hypothesis. Early-to-mid FFN layers (approximately layers 3--8) inject strong, positive DLA contributions toward the factual target, with this pattern being \emph{nearly identical} between the positive and negated prompts. The FFN does not "see'' negation; it fires unconditionally based on the entity in context. The inhibition from attention heads is a distinctly late phenomenon: meaningful negative DLA from attention only appears in layers 9--11. A ``Crossover Point'' can be identified in the cumulative DLA as the first layer where total negative attention DLA exceeds total positive FFN DLA. Cases where the crossover occurs at a later layer, or not at all, are systematically associated with higher failure rates and larger SGR values.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/cross_model/per_layer_dla_mean.png}
+    \caption{Mean per-layer DLA on negated prompts. Left column: FFN contributions (retrieval). Right column: Attention contributions (inhibition). The separation between success and failure is remarkably sharp in the attention heatmap, demonstrating failure occurs due to weak inhibition, not overactive retrieval.}
+    \label{fig:perlayer}
+\end{figure}
 
 \begin{figure}[h]
     \centering
