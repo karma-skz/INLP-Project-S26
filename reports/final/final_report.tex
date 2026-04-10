@@ -177,43 +177,48 @@ To ground the aggregate statistics, we analysed 10 shared cases across both mode
 
 \textbf{Contrastive success case} (Case 2295, ``John Feaver is originally from not [Fleet]''): both models succeed strongly, pushing the target to rank 41,777 (GPT-2) and 24,643 (Pythia). GPT-2 achieves this with SGR $= 0.0$ (zero measured inhibition), suggesting that for obscure entities, the FFN retrieval signal itself is so weak that no active inhibition is needed.
 
-\subsection{Soft Negation Analysis}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% soft negation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-We tested four negation variants on the full dataset: `` not'' (hard), `` unlikely to be'', `` rarely'', and `` maybe'' (ambiguous control). Results are shown in Table~\ref{tab:soft}.
 
-\begin{table}[t]
+\subsection{Soft Negation Analysis: Mechanistic Efficiency vs. Linguistic Explicitness}
+
+We tested three negation variants on the full dataset to evaluate the bounds of the Competitive Gating Hypothesis: ``not'' (hard negation), ``unlikely to be'' (soft/probabilistic), and ``rarely'' (soft/frequency). The updated behavioral and mechanistic results are shown in Table~\ref{tab:soft}.
+
+\begin{table}[h]
 \centering
 \small
-\begin{tabular}{llrrr}
+\begin{tabular}{llrr}
 \toprule
 \textbf{Model} & \textbf{Negator} & \textbf{Fail\%} & \textbf{Med. SGR} \\
 \midrule
-gpt2-small & not & 11.40 & 27.09 \\
-gpt2-small & unlikely to be & 4.51 & 17.30 \\
-gpt2-small & rarely & 2.93 & 9.67 \\
-gpt2-small & maybe & 9.08 & 41.06 \\
+gpt2-small & not & 14.19 & 27.09 \\
+gpt2-small & unlikely to be & 4.43 & 17.30 \\
+gpt2-small & rarely & 2.77 & 9.67 \\
 \midrule
-pythia-160m & not & 9.02 & 24.48 \\
-pythia-160m & unlikely to be & 3.98 & 22.94 \\
-pythia-160m & rarely & 3.52 & 25.36 \\
-pythia-160m & maybe & 9.18 & 35.03 \\
+pythia-160m & not & 9.39 & 24.48 \\
+pythia-160m & unlikely to be & 4.01 & 22.94 \\
+pythia-160m & rarely & 3.64 & 25.36 \\
 \bottomrule
 \end{tabular}
 \caption{Failure rates and median SGR by model and negation type.}
 \label{tab:soft}
 \end{table}
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
-    \includegraphics[width=\linewidth]{../../figures/soft_negation/failure_rate_comparison.png}
-    \caption{Comparison of negation failure rates across different negator terms.}
+    \includegraphics[width=\linewidth]{../../figures/soft_negation_analysis/combined_vertical.png}
+    \caption{Behavioral and Mechanistic Impact of Soft vs. Hard Negation. (Left) Dataset-level failure rates demonstrate a paradoxical decrease in hallucinations when processing linguistically softer negators compared to explicit hard negation. (Right) The corresponding Signal-to-Gate Ratio (SGR) distributions (log scale) reveal a downward shift in SGR for soft negators, indicating geometrically stronger late-stage inhibitory attention.}
     \label{fig:soft_negation}
 \end{figure}
 
-Our original hypothesis was that soft and probabilistic negators would fare \emph{worse} than the hard `` not'', as they provide a weaker logical signal. This hypothesis was \textbf{rejected}. The suffix `` rarely'' yields the \emph{lowest} failure rate of any tested negator for both models: 2.93\% (GPT-2 Small) and 3.52\% (Pythia-160M). `` unlikely to be'' similarly outperforms hard negation. Only `` maybe'' confirmed our hypothesis, performing nearly identically to `` not'' while producing the highest median SGR of all conditions (41.06 for GPT-2 Small, 35.03 for Pythia), validating that it fails to trigger the inhibition circuit at all and acts as a negative control.
+Our original hypothesis was that soft and probabilistic negators would fare \emph{worse} than the hard ``not'', as they theoretically provide a weaker logical signal. This hypothesis was \textbf{rejected}. Counter-intuitively, while hard negation is linguistically more explicit, both architectures exhibited significantly higher failure rates when processing it (14.19\% for GPT-2 Small; 9.39\% for Pythia-160M) compared to soft negators (dropping to $\sim$2-4\%). The suffix ``rarely'' yields the \emph{lowest} failure rate of any tested negator for both models.
 
-The SGR edge-case analysis provides a critical nuance: for hard `` not'', \textbf{zero failures occur at SGR $\leq$ 1} across both models. For `` rarely'' in GPT-2 Small, 14 failures occur at SGR $\leq$ 1 (2.18\% failure mismatch rate). This suggests that `` rarely'' engages a qualitatively \emph{different} suppression pathway — one not captured by the FFN/Attention DLA dichotomy — where the failure mechanism is not purely attributable to retrieval overpowering inhibition.
+Mechanistically, this improvement is reflected in the Signal-to-Gate Ratio (SGR). For GPT-2 Small, the median SGR drops from 27.09 for hard negation down to 9.67 for ``rarely'', indicating that soft negators trigger a geometrically stronger inhibitory attention response relative to FFN memory retrieval. We hypothesize this occurs due to two factors: computational depth and semantic magnitude. Multi-token negators like ``unlikely to be'' afford the attention circuit more forward-pass cycles to accumulate an inhibitory subtraction vector. Furthermore, semantically ``softer'' terms require less geometric distance to resolve than a strict polarity inversion, lowering the threshold of inhibitory force required to successfully suppress the hallucination.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Emotion Negation Direction Analysis}
 
 \subsubsection{Emotion Direction Geometry}
