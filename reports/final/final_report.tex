@@ -32,33 +32,24 @@
 
 % -----------------------------------------------------------------
 \begin{abstract}
-We investigate why large language models (LLMs) systematically fail at negation, framing this as a mechanistic conflict between \emph{automatic factual retrieval} in Feed-Forward Networks (FFNs) and \emph{late-stage inhibitory logic} in specific attention heads.
-We propose the \textbf{Competitive Gating Hypothesis} and introduce the \textbf{Signal-to-Gate Ratio (SGR)} to quantify the competition between retrieval and suppression as a single scalar per sample.
-Using TransformerLens, we build a seven-stage mechanistic analysis pipeline and evaluate it across \textbf{five} transformer models GPT-2 Small, GPT-2 Medium, GPT-2 Large, Pythia-160M, and Pythia-410M over the full CounterFact dataset (${\sim}$21,900 prompt pairs per model).
-Our results reveal that negation failure rates remain stubbornly between 9.1\% and 12.9\% regardless of model scale.
-SGR~$>$~1 is a necessary condition for all observed failures, and SGR~$<$~1 yields a \textbf{100\% success rate} in negation, providing definitive support for the hypothesis.
-Crossover analysis localises the critical inhibition boundary to layers~5--7, and activation patching causally confirms that mid-layer attention constitutes the inhibition circuit.
-Extended amplification experiments demonstrate that scaling inhibition heads by $\alpha\!=\!4$ roughly halves the failure rate in GPT-2 Small (11.4\%~$\to$~5.5\%) and significantly reduces it in Pythia-160M (9.1\%~$\to$~3.8\%).
-Finally, a semantic audit reveals that relation type is a powerful predictor of failure vulnerability, with ``field of work'' prompts failing at 83.3\% while geographic relations achieve 0\% failure.
+In this project, we investigate the mechanisms behind negation failures in Large Language Models (LLMs). When prompted with a logical constraint such as "The capital of France is not," models frequently bypass the negation to output the statistically highly-probable token ("Paris"). Viewing this through the lens of mechanistic interpretability, we study dense models, specifically \texttt{gpt2-small} and \texttt{pythia-160m}, using the CounterFact dataset. We propose the Competitive Gating Hypothesis: factual memory retrieval functions as a "logic-blind" reflex governed by Feed-Forward Networks (FFNs), while logical negation is managed by late-stage Inhibition Attention Heads. We introduce a novel proxy measure, the Signal-to-Gate Ratio (SGR), to quantify this competition. Our findings indicate that negation failures occur physically when the retrieval signal significantly outweighs the inhibition capacity. We find an overall negation failure rate of 11.4\% for \texttt{gpt2-small} and 9.02\% for \texttt{pythia-160m}. Artificial amplification of identified inhibition heads successfully mitigates these failures, corroborating our structural hypothesis.
 \end{abstract}
 
 % =================================================================
 \section{Introduction}
 \label{sec:intro}
 % =================================================================
+To effectively process negation, a language model must resolve a structural conflict in its residual stream, which serves as the primary conduit of information across transformer layers. On one hand, internal factual recall mechanisms push robustly for the most likely completion based on training frequency. Conversely, the presence of negation tokens (e.g., "not") must activate secondary circuits to actively inhibit this high-probability output.
 
-When asked ``The capital of France is not \underline{\hspace{1cm}},'' a transformer language model must resolve a fundamental internal conflict. Automatic recall mechanisms, deeply embedded in Feed-Forward Network (FFN) layers, reflexively push for the most frequent factual completion ``Paris.'' Simultaneously, the presence of the negation token ``not'' must trigger a separate circuit to \emph{suppress} precisely that high-probability output.
+Behavioral studies liken this contradiction to the psychological "Pink Elephant" effect or ironic process theory, wherein the instruction to suppress a concept paradoxically enhances its cognitive activation \citep{Vrabcova:2024}. Despite these behavioral categorizations, the precise neural implementation of this conflict remains underexplored.
 
-Behavioural studies liken this to the psychological ``Pink Elephant'' effect, or \emph{ironic process theory}: the instruction to avoid a concept paradoxically increases its activation~\cite{vrabcova-etal-2024-pink}. Despite growing evidence that scaling alone does not resolve negation failures~\cite{truong-etal-2023-language}, we lack a mechanistic account of \emph{why} the suppression circuit fails in specific cases.
+We propose the \textbf{Competitive Gating Hypothesis}. We posit that factual recall acts much like an involuntary reflex, retrieving the target token completely agnostic to the surrounding logical context. The negation operator functions as a subsequent gatekeeper, attempting to counteract this signal in the later layers of the network. We track this conflict to pinpoint a "Crossover Point" within the residual stream where logic either subdues the memory signal or is overpowered by it.
 
-We propose the \textbf{Competitive Gating Hypothesis}: factual recall acts like a reflex it retrieves the most probable token regardless of logical context while negation acts as a secondary gatekeeper that must ``undo'' this work in the final layers. The outcome is determined by the relative magnitudes of these two competing signals at a critical architectural boundary, which we term the \textbf{Crossover Point}.
-
-\paragraph{Contributions.}
+Our primary contributions are as follows:
 \begin{enumerate}
-\item A novel metric, the \textbf{Signal-to-Gate Ratio (SGR)}, that quantifies the retrieval--inhibition conflict as a single scalar per sample, with SGR~$<$~1 shown to be a near-perfect predictor of negation success.
-\item A complete, reproducible mechanistic pipeline tested across \textbf{five models} and the full CounterFact dataset ($>$80,000 total evaluations).
-\item \textbf{Causal evidence} via activation patching and artificial amplification that identifies and manipulates the inhibition circuit.
-\item A \textbf{semantic audit} revealing which entity types are architecturally vulnerable to negation failure.
+    \item We introduce the Signal-to-Gate Ratio (SGR) as a mathematical proxy for internal mechanism competition.
+    \item We localize a "Crossover Point" around layers 9-11 where suppression must outweigh retrieval.
+    \item We demonstrate that amplifying the output of particular inhibition heads directly diminishes hallucination rates, mechanistically grounding the cause of negation failure.
 \end{enumerate}
 
 % =================================================================
@@ -66,577 +57,247 @@ We propose the \textbf{Competitive Gating Hypothesis}: factual recall acts like 
 \label{sec:related}
 % =================================================================
 
-\subsection{FFNs as Memory Stores}
-Geva et al.~\shortcite{geva-etal-2021-transformer} demonstrated that transformer FFN layers function as key--value memory stores, with individual neurons encoding entity--attribute associations. Subsequent work~\cite{geva-etal-2022-transformer} showed that FFN updates can be decomposed into sub-updates that each promote interpretable concepts in the vocabulary space. Dai et al.~\shortcite{dai-etal-2022-knowledge} identified specific ``knowledge neurons'' in mid-layer FFNs that are causally responsible for factual recall.
+\subsection{Memory vs. Logic}
+Research into the localized storage of facts has largely focused on Feed-Forward Networks (FFNs). \citet{Geva:2021} and \citet{Dai:2022} demonstrate that FFNs mathematically function as key-value stores. In mid-to-late layers, they act as "attribute extractors," injecting entity vectors directly into the residual stream, completely independent of the broader logical syntax. 
 
-\subsection{Circuit-Level Interpretability}
-Wang et al.~\shortcite{wang2022interpretabilitywildcircuitindirect} established the circuit analysis framework by reverse-engineering the Indirect Object Identification (IOI) task in GPT-2 Small, identifying functional head types including inhibitory heads that suppress competing tokens. Our work extends this circuit-discovery paradigm to the negation task, identifying analogous inhibition heads that suppress factual recall when negation is present. Meng et al.~\shortcite{meng-etal-2022-locating} contributed the CounterFact dataset and localised factual associations to mid-layer FFNs, providing the empirical foundation for our retrieval--inhibition framing.
+\subsection{Finding the "Off Switch"}
+The effort to mathematically define sub-networks led to the formalization of "circuits" \citep{Wang:2023}. Building on circuit analysis, \citet{Hanna:2024} discovered "Inhibition Heads" — specialized attention heads that route information specifically to decrease the un-normalized probability (logit) of logically forbidden tokens.
 
-\subsection{Negation Failures}
-Truong et al.~\shortcite{truong-etal-2023-language} systematically showed that LLMs fail at negation across multiple benchmarks, and that scaling model size does not fix the problem. Vrabcov\'{a} et al.~\shortcite{vrabcova-etal-2024-pink} demonstrated a ``Pink Elephant'' effect: mentioning a concept in a negative context makes it statistically harder for the model to generate diverse alternatives. Our work provides a \emph{mechanistic} explanation for these behavioural observations.
+\subsection{Failures of Negation}
+LLMs frequently struggle with explicit negation. \citet{Truong:2023} observed that this is not easily solved by scaling model size. \citet{Vrabcova:2024} characterized the "Pink Elephant" effect, demonstrating that mentioning a negated concept traps the model's attention mechanism on the forbidden entity, structurally inhibiting correct generation.
 
 % =================================================================
-\section{Background: Transformer Internals}
+\section{Background}
 \label{sec:arch}
 % =================================================================
+Before detailing our methodology, we outline the fundamental interpretive techniques underpinning our experiments.
 
-\subsection{The Residual Stream}
-Every transformer layer updates a shared residual stream vector:
-\begin{equation}
-\mathbf{r}_{l+1} = \mathbf{r}_{l} + \mathrm{attn}_l + \mathrm{ffn}_l .
-\end{equation}
-At the final layer, the logit for token $t$ is:
-\begin{equation}
-\mathrm{logit}(t) = \mathbf{W}_U[:,t]^\top\, \mathbf{r}_{\mathrm{final}} .
-\label{eq:logit}
-\end{equation}
-Because the residual stream is linearly additive, every component's contribution can be measured independently the foundation of Direct Logit Attribution.
+\subsection{Direct Logit Attribution (DLA)}
+The output vocabulary logits are the dot product of the final residual stream vector and the unembedding matrix. Because the transformer is uniquely additive, we can compute Direct Logit Attribution (DLA) by projecting any individual layer or head's output directly to the vocabulary dimension. This allows us to construct a precise "scoreboard" for any token, viewing which components positively contributed to its probability and which actively subtracted from it.
 
-\subsection{Feed-Forward Networks as Memory}
-Each layer's FFN computes $\mathrm{FFN}(\mathbf{x}) = \mathbf{W}_2\,\mathrm{GELU}(\mathbf{W}_1 \mathbf{x})$. In our framework, FFNs implement \textbf{memory retrieval}: they inject entity--attribute associations into the residual stream regardless of logical context.
+\subsection{Activation Patching}
+Activation patching isolates the causal power of a component. Given a clean run ("... is not") and a corrupted run ("... is"), we selectively rewrite the activations of a specific attention head or MLP in the corrupted run with those from the clean run. If the output cleanly flips to the expected correct logic, we confirm that component's causal role in the negation circuit.
 
-\subsection{Attention Heads as Control}
-Attention heads route information by mixing value vectors weighted by attention scores. In our framework, certain attention heads function as \textbf{control/suppression} units that detect the negation token and attempt to subtract the factual signal from the residual stream.
+\textbf{[USER: I LACK DEEP METHODOLOGICAL THEORY REGARDING ANTHROPIC'S LINEAR-DIRECTION EXPERIMENT AND HOW YOU SPECIFICALLY INJECTED LATENT VECTORS FOR EMOTIONS. PLEASE ADD A CONCISE SUBSECTION EXPLAINING THE LINEAR ADDITION EQUATIONS AND HOW THE 'ALPHA' SWEEP WAS STRUCTURED.]}
 
 % =================================================================
 \section{Dataset}
 \label{sec:data}
 % =================================================================
+Our primary experiments utilize the CounterFact benchmark \citep{Meng:2022}, which provides pairs of subject-relation mappings. We constructed templates comparing positive prompt stems (e.g., "The capital of France is") with their syntactically negated counterparts ("The capital of France is not"). For our soft-negation studies, we expanded these prompts with modifiers such as "unlikely to be," "rarely," and "maybe."
 
-We use the \textbf{CounterFact} dataset~\cite{meng-etal-2022-locating}, a benchmark of 21,919 factual associations. Each entry provides a prompt (e.g., ``The mother tongue of Danielle Darrieux is'') and a target token (e.g., ``French''). For each entry we construct a \emph{prompt pair}:
-\begin{itemize}
-\item \textbf{Positive:} ``The capital of France is''
-\item \textbf{Hard negation:} ``The capital of France is not''
-\end{itemize}
-
-\paragraph{Tokenisation.} GPT-2 and Pythia tokenisers expect a leading space on bare words (e.g., {\tt " Paris"}). Our pipeline validates single-token targets via {\tt model.to\_single\_token} and skips multi-token targets automatically. This results in 21,919 valid pairs for GPT-2 models and 19,562 for Pythia models (2,357 multi-token targets skipped).
+For our secondary direction-injection evaluation, we generated an Emotion dataset of paired sequences (e.g. "I feel happy" vs. "I do not feel happy") categorized across basic affective dimensions (joy, sadness, anger, fear) to probe non-factual, semantic negation.
 
 % =================================================================
 \section{Methodology}
 \label{sec:method}
 % =================================================================
 
-\subsection{Models}
-We evaluate five transformer models using TransformerLens~\cite{nanda2022transformerlens}:
+\subsection{Direct Logit Attribution Analysis}
+We treat the residual stream as a linear accumulator. At each layer, both MLP blocks and attention heads write vectors into this stream. Since the final logit for any token is the dot product of the final residual stream with the unembedding matrix, and the residual stream is a sum of all component outputs, we can directly attribute each component's scalar contribution to a target token's logit. We call this per-component score the Direct Logit Attribution (DLA). In our experiments, DLA is computed for the target factual token (e.g., " Paris") at the position of the final input token. FFN blocks in mid-to-late layers show strongly positive DLA values, meaning they push up the probability of the factual answer. Inhibition attention heads show negative DLA values, actively reducing that probability. A \textbf{negation failure} is formally defined as the event where the negated target token's vocabulary rank is higher (closer to rank 1) in the negated prompt than its rank in the positive prompt — i.e., the model is \emph{more} confident about the forbidden answer after seeing ``not''.
 
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Model} & \textbf{Layers} & \textbf{Heads} & \textbf{$d_{\mathrm{model}}$} \\
-\midrule
-GPT-2 Small   & 12 & 12 & 768  \\
-GPT-2 Medium  & 24 & 16 & 1024 \\
-GPT-2 Large   & 36 & 20 & 1280 \\
-Pythia-160M   & 12 & 12 & 768  \\
-Pythia-410M   & 24 & 16 & 1024 \\
-\bottomrule
-\end{tabular}
-\caption{Model architectures evaluated.}
-\label{tab:models}
-\end{table}
+\subsection{The Signal-to-Gate Ratio (SGR)}
+To quantify the competition between factual retrieval and logical suppression, we define the Signal-to-Gate Ratio (SGR) as:
 
-This selection spans two architectural families (GPT-2, EleutherAI Pythia) and three parameter scales, enabling us to test whether the Competitive Gating Hypothesis generalises across both families and scales.
-
-\subsection{Direct Logit Attribution (DLA)}
-\label{sec:dla}
-Because the residual stream is a linear sum of component outputs, we decompose the final logit into per-component contributions:
 \begin{equation}
-\mathrm{logit}(t) = \sum_{c}\; \mathbf{r}_c \cdot \mathbf{W}_U[:,t]
+\text{SGR} = \frac{\sum_{l} \max(\text{DLA}^{(l)}_{\text{FFN}}, 0)}{\sum_{l} |\min(\text{DLA}^{(l)}_{\text{Attn}}, 0)|}
 \end{equation}
-A \emph{positive} DLA means the component pushed \emph{toward} the target; \emph{negative} DLA means it pushed \emph{away}. We compute DLA for every FFN layer and every attention layer, producing a complete mechanistic fingerprint of each prediction.
 
-\subsection{Signal-to-Gate Ratio (SGR)}
-\label{sec:sgr}
-For a negated prompt, we define the SGR as the ratio of total positive FFN (retrieval) DLA to total negative Attention (inhibition) DLA:
-\begin{equation}
-\mathrm{SGR}
-= \frac{\sum_{\ell \in \mathrm{FFN}} [\mathrm{DLA}_\ell]_+}
-       {\sum_{h \in \mathrm{Attn}} |[\mathrm{DLA}_h]_-|}
-\label{eq:sgr}
-\end{equation}
-where $[\cdot]_+$ retains only positive (retrieval) contributions and $[\cdot]_-$ retains only negative (inhibitory) contributions. When $\mathrm{SGR} > 1$, retrieval overwhelms inhibition and the model is predicted to hallucinate; when $\mathrm{SGR} < 1$, inhibition wins.
+where the numerator sums all positive FFN DLA contributions (factual retrieval) and the denominator sums all negative attention DLA contributions (inhibition). An $\text{SGR} > 1$ means retrieval dominates suppression; the model is structurally set up to fail at negation. An $\text{SGR} \leq 1$ implies the inhibition capacity is sufficient to override retrieval.
 
-\subsection{Per-Head DLA and Inhibition Head Identification}
-We decompose attention DLA to individual heads using {\tt cache.stack\_head\_results()}. For each head $(l,h)$ we compute DLA on both prompts. Heads with large $\Delta\mathrm{DLA} = \mathrm{DLA}_{\mathrm{pos}} - \mathrm{DLA}_{\mathrm{neg}}$ are candidate \textbf{Inhibition Heads}: they promote the target on the positive prompt but suppress it under negation. We rank all heads and select the top-$k$ for causal experiments.
-
-\subsection{Crossover Point Detection}
-For each prompt, we compute the cumulative DLA from FFNs and Attention separately across layers. The \textbf{Crossover Point} is defined as the first layer $l^{*}$ where cumulative attention inhibition exceeds cumulative FFN retrieval. This identifies the precise architectural depth where the model either successfully implements negation or fails.
+\subsection{Inhibition Head Identification and Amplification}
+Top inhibition heads are identified by ranking attention heads by their mean negative DLA on the negated prompt across a 1000-pair analysis set. We then test the causal role of these heads by amplifying their output vectors by a scalar factor $\lambda \in [1, 4]$ at inference time, measuring whether the negation failure rate decreases as $\lambda$ increases.
 
 \subsection{Activation Patching}
-\label{sec:patching}
-To establish \emph{causal} (not merely correlational) claims, we perform activation patching:
-\begin{enumerate}
-\item Run the \textbf{positive} prompt ($p^+$) and cache all activations.
-\item Run the \textbf{negated} prompt ($p^-$); at one chosen layer, \emph{replace} the negated activation with the positive one.
-\item Measure the target token's rank change.
-\end{enumerate}
-If restoring layer $l$'s activation from $p^+$ ``rescues'' the negation failure (i.e., the target's rank returns to baseline), that layer was \emph{causally} performing suppression. We patch three component types separately: residual stream, MLP output, and attention output.
+Activation patching is applied at the dataset scale to localize the most causally powerful layers. For each prompt pair, we run a clean forward pass on the positive prompt and a corrupted forward pass on the negated prompt. We then patch residual stream activations, MLP outputs, or attention outputs from one layer at a time from the clean run into the corrupted run, measuring the resulting change in the target token's logit ($\Delta$logit). A large positive $\Delta$logit after patching indicates that the clean information at that layer is critical for correct negation handling.
 
-\subsection{Artificial Amplification}
-\label{sec:amp}
-If inhibition heads are genuine but too weak, scaling their outputs should reduce the target logit under negation. We hook into selected heads via TransformerLens and multiply their outputs by $\alpha \in \{0.5, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0\}$, measuring the negation failure rate at each scale across the full dataset.
+\subsection{Soft and Emotion Negation}
+For soft negation, we replace the `` not'' suffix with `` unlikely to be'', `` rarely'', and `` maybe'' and re-run the full SGR benchmark pipeline on\texttt{gpt2-small} and \texttt{pythia-160m}. For the emotion negation experiment, we construct balanced prompt pairs (e.g., ``I feel happy'' vs.~``I do not feel happy'') across four emotion categories (joy, sadness, anger, fear) and extract the final-token residual stream representation as an emotion direction vector. We then measure direction norms across layers, probe accuracy, distance-to-neutral and distance-to-opposite under negation, and the R$^2$ linearity of an alpha-sweep that injects the emotion direction vector back into the residual stream.
 
 % =================================================================
 \section{Experimental Design}
 \label{sec:pipeline}
 % =================================================================
 
-Our pipeline consists of seven stages:
-
-\begin{enumerate}
-\item \textbf{Prompt Pair Construction:} Build positive/negated pairs from CounterFact with single-token target validation.
-\item \textbf{Benchmark:} Run both prompts through each model with {\tt model.run\_with\_cache()}, decompose residual streams, compute DLA, SGR, and crossover point for every sample.
-\item \textbf{SGR Distribution Analysis:} Aggregate SGR statistics and visualise distributions.
-\item \textbf{Per-Head Decomposition:} Identify inhibition heads via $\Delta$DLA ranking.
-\item \textbf{Amplification:} Sweep scale factors on top-$k$ inhibition heads.
-\item \textbf{Activation Patching:} Causal rescue experiments at dataset scale.
-\item \textbf{Statistical Analysis:} Spearman correlation, bootstrap confidence intervals, Mann--Whitney tests, and two-proportion $z$-tests.
-\end{enumerate}
-
-Three additional post-hoc analyses extend the pipeline:
-\begin{itemize}
-\item \textbf{SGR\,$<$\,1 Verification:} Audit all samples where inhibition dominates.
-\item \textbf{Hard Negation Semantic Audit:} Correlate failure rates with entity types and prompt structure.
-\item \textbf{Crossover Layer Analysis:} Histogram crossover depths and correlate with SGR and failure.
-\end{itemize}
+Our experiments run on \texttt{gpt2-small} (117M parameters, 12 layers, 12 heads) and \texttt{pythia-160m} (160M parameters, 12 layers, 12 heads) via the \texttt{TransformerLens} library. The core \textbf{cross-model quantitative analysis} processes the full CounterFact dataset (21,919 pairs for GPT-2 Small, 19,562 for Pythia-160M) and computes, for each pair: the target token's rank in both the positive and negated prompts; the per-layer DLA decomposition; the SGR; the Crossover Point (the first layer where cumulative attention DLA exceeds cumulative FFN DLA); and whether a negation failure occurred. A further 1000-pair subset is used for computationally intensive analyses (head-level DLA, amplification sweeps, activation patching). The \textbf{soft negation} experiment replaces the suffix on the same full dataset with four variants: `` not'', `` unlikely to be'', `` rarely'', and `` maybe''. The \textbf{emotion negation} experiment constructs a separate small dataset of 9-12 balanced affirmation/negation pairs per emotion category and runs direction-extraction, probe training, and alpha-sweep analysis on both models.
 
 % =================================================================
 \section{Results}
 \label{sec:results}
 % =================================================================
 
-\subsection{Dataset-Scale Behavioural Results}
+\subsection{Cross-Model Quantitative Analysis}
 
-\begin{table}[t]
-\centering\small
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lrrrr@{}}
-\toprule
-\textbf{Model} & \textbf{Pairs} & \textbf{Fail\,\%} & \textbf{Mean SGR} & \textbf{Median SGR} \\
-\midrule
-GPT-2 Small  & 21,919 & 11.4 & 244.6  & 27.1 \\
-GPT-2 Medium & 21,919 & 11.3 & 806.1  & 53.0 \\
-GPT-2 Large  & 21,919 & 12.9 & 288.5  & 48.6 \\
-Pythia-160M  & 19,562 & \textbf{9.1}  & 205.1  & 24.5 \\
-Pythia-410M  & 19,562 & 11.2 & \textbf{10.0}   & \textbf{6.3}  \\
-\bottomrule
-\end{tabular}%
-}
-\caption{Behavioural summary across all five models. Failure rates remain between 9.1--12.9\% despite $6\times$ parameter scaling. Pythia-410M has the lowest SGR, indicating the strongest relative inhibition.}
-\label{tab:results}
-\end{table}
+\subsubsection{Negation Failure Rates and Rank Shifts}
+Over the full CounterFact dataset, \texttt{gpt2-small} produced 2,498 negation failures out of 21,919 samples, a failure rate of \textbf{11.40\%}. \texttt{pythia-160m} showed 1,764 failures out of 19,562 samples, or \textbf{9.02\%}. On successful negations, both models achieve dramatic rank suppression: the median rank shift is $+668$ for GPT-2 Small and $+938.5$ for Pythia-160M, meaning the target token is pushed hundreds of positions deeper in the vocabulary distribution. On failures, the situation reverses sharply: the median rank shift is $-174.5$ for GPT-2 Small and $-296.5$ for Pythia-160M, confirming that the forbidden token actively moves \emph{up} the logit distribution when negation fails.
 
-Table~\ref{tab:results} presents the core results. Three key observations emerge:
+\subsubsection{SGR as a Predictor of Failure}
+The SGR exhibits a clear bifurcation by outcome for GPT-2 Small. Successful negations have a median SGR of 24.83, while failed negations have a median SGR of \textbf{48.13} — nearly double. This aligns with the Competitive Gating Hypothesis: when FFN retrieval is unusually strong relative to inhibition capacity, the gate fails. Pythia-160M presents a different picture: the median SGR for successes (24.48) and failures (24.44) are nearly identical. This suggests that for Pythia, SGR as computed by an aggregate FFN/Attention ratio does not cleanly separate outcomes, implying a more distributed suppression mechanism in that model family.
 
-\paragraph{Scaling does not fix negation.} Negation failure rates range from 9.1\% (Pythia-160M) to 12.9\% (GPT-2 Large). Remarkably, GPT-2 Large (774M parameters) has a \emph{higher} failure rate than GPT-2 Small (124M), confirming prior behavioural findings~\cite{truong-etal-2023-language} but now with a mechanistic explanation: larger FFN capacity increases retrieval strength without proportionally strengthening inhibition---the memory muscle grows faster than the logic brake.
-
-\paragraph{SGR distributions are heavily right-skewed.} Mean SGRs range from 10.0 (Pythia-410M) to 806.1 (GPT-2 Medium), reflecting extreme tail cases where inhibition is negligible. The median is consistently more representative (6.3--53.0), indicating that for most prompts, retrieval moderately outweighs inhibition.
-
-\paragraph{Cross-family consistency.} Both GPT-2 and Pythia families exhibit the same failure pattern, supporting the generality of the Competitive Gating Hypothesis across different pre-training corpora and architectural choices.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/sgr_histogram.png}
-  \caption{SGR distribution across CounterFact for all models. Hatched bars denote failures. The dashed line marks SGR\,=\,1.}
-  \label{fig:sgrhist}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/cross_model/sgr_failure_rate.png}
+    \caption{Failure rates grouped by SGR bin across both models.}
+    \label{fig:sgr_distribution}
 \end{figure}
 
-\subsection{SGR as a Diagnostic Metric}
+The SGR edge-case analysis reinforces this asymmetry: for GPT-2 Small, \textbf{0 failures occur at SGR $\leq$ 1} (failure mismatch rate = 0.00\%). However, 56.1\% of successes occur at SGR $> 1$ — confirming that high SGR is necessary but not sufficient for failure. For Pythia-160M, the mismatch is even more extreme: 93.97\% of successes occur at SGR $> 1$, indicating that Pythia overwhelmingly navigates negation even when the retrieval signal is quantitatively stronger than the measured inhibition.
 
-Figure~\ref{fig:sgrhist} shows the SGR distribution colour-coded by negation outcome. Among failure cases, \textbf{100\% have SGR\,$>$\,1} across all five models. However, SGR\,$>$\,1 is necessary but not sufficient: the SGR\,$>$\,1 rate among all samples varies from 58.0\% (GPT-2 Small) to 99.9\% (Pythia-410M), yet failure rates remain at ${\sim}$10\%. This indicates that additional circuit-level factors such as the absolute magnitude of inhibition or the number of cooperating suppression heads modulate the final outcome even when retrieval nominally exceeds inhibition.
+\subsubsection{Top Inhibition Heads}
+Heads were ranked by mean negative DLA over the 1,000-pair analysis subset. For \texttt{gpt2-small}, the top inhibition heads are located at layers 9, 10, 8, 0, and 11 (heads (9,8), (10,0), (8,11), (0,1), (11,2)). For \texttt{pythia-160m}, the top heads are (9,4), (8,1), (8,10), (7,8), (9,0). Notably, both models concentrate inhibition activity in layers 7--11, consistent with our prediction of a late-stage negation gate.
 
-\begin{table}[t]
-\centering\small
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lrrrr@{}}
-\toprule
-\textbf{Model} & \textbf{SGR\,$>$\,1} & \textbf{Spearman $r$} & \multicolumn{2}{c}{\textbf{95\% CI (Fail\%)}} \\
-\cmidrule(lr){4-5}
-& \textbf{rate} & & Lower & Upper \\
-\midrule
-GPT-2 Small  & 58.0\% & 0.15   & 10.9 & 11.9 \\
-GPT-2 Medium & 70.0\% & 0.018  & 10.9 & 11.7 \\
-GPT-2 Large  & 83.6\% & 0.008  & 12.5 & 13.4 \\
-Pythia-160M  & 94.4\% & 0.013  & 8.7  & 9.6  \\
-Pythia-410M  & 99.9\% & 0.011  & 10.7 & 11.6 \\
-\bottomrule
-\end{tabular}%
-}
-\caption{Statistical analysis of SGR across models. Spearman correlations are modest but the SGR\,$>$\,1 condition is universal among failures.}
-\label{tab:stats}
-\end{table}
+\subsubsection{Inhibition Head Amplification}
+We amplified the output of the top 5 inhibition heads by a scale factor $\lambda \in [1.0, 4.0]$. At $\lambda = 4.0$, the failure rate on the 1,000-pair subset dropped from \textbf{10.60\%} to \textbf{5.50\%} for GPT-2 Small (absolute improvement: 5.1pp) and from \textbf{7.80\%} to \textbf{3.40\%} for Pythia-160M (absolute improvement: 4.4pp). This intervention provides causal evidence that the identified heads are directly responsible for a portion of negation failures.
 
-The modest Spearman correlations (Table~\ref{tab:stats}) deserve careful interpretation. Because SGR\,$>$\,1 is nearly universal in both failures and successes for Pythia models, the \emph{continuous} correlation necessarily weakens. The metric's power lies in its \emph{binary} diagnostic value: SGR\,$<$\,1 perfectly predicts success (see \S\ref{sec:sgrlt1}).
-
-\subsection{SGR\,$<$\,1 Verification}
-\label{sec:sgrlt1}
-
-We filtered all GPT-2 Small benchmark samples by SGR region (excluding $\mathrm{SGR}=\infty$ samples with zero inhibition):
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}lrrrr@{}}
-\toprule
-\textbf{SGR Region} & \textbf{$N$} & \textbf{Success} & \textbf{Failure} & \textbf{Fail\,\%} \\
-\midrule
-SGR\,$<$\,1 & 1    & 1 & 0 & \textbf{0.0\%} \\
-SGR\,$\geq$\,1 & 131 & 110 & 21 & 16.0\% \\
-\bottomrule
-\end{tabular}
-\caption{SGR\,$<$\,1 verification: perfect negation success when inhibition exceeds retrieval.}
-\label{tab:sgrlt1}
-\end{table}
-
-Although SGR\,$<$\,1 cases are rare in small models (reflecting the architectural dominance of the retrieval circuit), the result is unambiguous: when inhibition \emph{does} overcome retrieval, the model successfully suppresses the factual token with 100\% reliability. The rarity of SGR\,$<$\,1 is itself informative it quantifies how severely the logic circuit is under-resourced relative to the memory circuit.
-
-\subsection{Per-Layer DLA Analysis}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/per_layer_dla_mean.png}
-  \caption{Mean per-layer DLA on negated prompts. Left column: FFN contributions (retrieval). Right column: Attention contributions (inhibition). Rows separate success from failure cases.}
-  \label{fig:perlayer}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/cross_model/amplification_summary.png}
+    \caption{Reduction in failure rate when artificially multiplying the output of identified inhibition heads.}
+    \label{fig:amplification}
 \end{figure}
 
-Figure~\ref{fig:perlayer} reveals the mechanistic core of the hypothesis:
-
-\begin{itemize}
-\item \textbf{FFN retrieval is logic-blind.} Mid-layer FFNs (layers 5--9) contribute strong positive DLA regardless of whether the prompt is negated or positive, confirming that retrieval operates independently of logical context.
-\item \textbf{Inhibition concentrates in late layers.} Attention contributions show negative DLA (suppression) only in layers 8--11, and this suppression is \emph{substantially weaker} in failure cases.
-\item \textbf{The timing matters.} The separation between success and failure cases is sharpest in the attention heatmap, not the FFN heatmap the models differentiate through their \emph{inhibition capacity}, not their retrieval intensity.
-\end{itemize}
-
-\subsection{Crossover Analysis}
-\label{sec:crossover}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_layer_dist.png}
-  \caption{Distribution of crossover layers across models. The modal crossover occurs at layers 5--6 for 12-layer models.}
-  \label{fig:crossover_dist}
-\end{figure}
-
-The crossover layer analysis formalises the ``critical boundary'' concept. For 12-layer models (GPT-2 Small, Pythia-160M), the crossover clusters at layers 5--7 (Figure~\ref{fig:crossover_dist}). Critically:
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_vs_failure.png}
-  \caption{Crossover layer vs. negation outcome. Success cases cluster at layers 5--7; failures extend to layers 9--11 or lack a crossover entirely.}
-  \label{fig:crossover_fail}
-\end{figure}
-
-\begin{itemize}
-\item \textbf{Success cases} have crossover at layers 5--7 (Figure~\ref{fig:crossover_fail}).
-\item \textbf{Failure cases} have late crossovers (layers 9--11) or no crossover at all (SGR~$= \infty$).
-\item Crossover layer correlates inversely with SGR (Figure~\ref{fig:crossover_sgr}): early crossover $\Leftrightarrow$ low SGR $\Leftrightarrow$ successful suppression.
-\end{itemize}
-
-This establishes that the architecture has a \emph{window of opportunity}: if the inhibition circuit does not take control by the midpoint of the network, the factual signal becomes too deeply embedded in the residual stream to suppress.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_vs_sgr.png}
-  \caption{Crossover layer vs. SGR (log scale). Early crossovers correspond to SGR\,$<$\,1; late crossovers map to extreme SGR values.}
-  \label{fig:crossover_sgr}
-\end{figure}
-
-\subsection{Per-Head DLA and Inhibition Head Identification}
-
-Per-head decomposition identifies the specific heads responsible for inhibition. For GPT-2 Small, the top-3 inhibition heads are $(9,8)$, $(10,0)$, and $(8,11)$, with mean $\Delta$DLA values of 5.59, 4.80, and 2.79 respectively (measured over 1,000 prompts). These heads consistently promote the target token on positive prompts but suppress it under negation, confirming their role as dedicated negation processors.
-
-Across model families, inhibition heads scale proportionally with depth:
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}lc@{}}
-\toprule
-\textbf{Model} & \textbf{Top Inhibition Head} \\
-\midrule
-GPT-2 Small  & (9,\,8) layer 9  \\
-GPT-2 Medium & (21,\,12) layer 21 \\
-GPT-2 Large  & (30,\,6) layer 30  \\
-Pythia-160M  & (9,\,4) layer 9  \\
-Pythia-410M  & (17,\,6) layer 17 \\
-\bottomrule
-\end{tabular}
-\caption{Top inhibition head by model. Inhibition concentrates in the final ${\sim}$25\% of layers across all scales.}
-\label{tab:heads}
-\end{table}
-
-This consistent positioning at approximately 75--85\% depth suggests an architectural regularity: the inhibition circuit reliably forms in the late layers regardless of total depth.
-
-\subsection{Activation Patching: Causal Evidence}
-\label{sec:patching_results}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth,height=0.85\textheight,keepaspectratio]{../../figures/cross_model/patching_summary.png}
-  \caption{Activation patching rescue rates across all five models. Patching mid-layer attention outputs produces the highest rescue rates, causally confirming the inhibition circuit's localisation.}
-  \label{fig:patching}
-\end{figure}
-
-We scaled activation patching to the full dataset, testing 1,000 samples per model and patching all three component types at every layer. Figure~\ref{fig:patching} shows the ``rescue rate'' the fraction of natural failures that are corrected by patching:
-
-\begin{itemize}
-\item \textbf{Early layers (0--4):} Patching has negligible effect. The inhibition circuit has not yet engaged.
-\item \textbf{Mid layers (5--9):} Patching the \emph{attention stream} produces peak rescue rates. This is the causal confirmation that layers 5--9 contain the inhibition circuit.
-\item \textbf{Late layers (10--11):} Rescue rates drop. The prediction is already committed.
-\end{itemize}
-
-This result provides the strongest \emph{causal} evidence in the project: supplying the model with ``correct logic'' exclusively within the mid-layer attention boundary is functionally equivalent to giving the entire model the correct logic for negation.
-
-\subsection{Artificial Amplification}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/cross_model/amplification_summary.png}
-  \caption{Cross-model amplification comparison. Failure rates for all five models as a function of inhibition head amplification scale $\alpha$. The baseline ($\alpha\!=\!1$) is marked.}
-  \label{fig:amp}
-\end{figure}
-
-Extended amplification experiments (Figure~\ref{fig:amp}) sweep finer scale grids ($\alpha \in \{1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0\}$) across all five models:
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-\textbf{Model} & $\alpha\!=\!1$ & $\alpha\!=\!2$ & $\alpha\!=\!4$ & \textbf{Reduction} \\
-\midrule
-GPT-2 Small  & 10.4\% & 8.6\% & 5.5\%  & $-$47\% \\
-GPT-2 Medium & 10.5\% & 10.2\% & 7.1\% & $-$32\% \\
-GPT-2 Large  & 11.9\% & 13.0\% & 13.4\% & +13\% \\
-Pythia-160M  & 7.6\%  & 7.8\% & 3.8\%  & $-$50\% \\
-Pythia-410M  & 10.0\% & 9.3\% & 5.2\%  & $-$48\% \\
-\bottomrule
-\end{tabular}
-\caption{Amplification effectiveness on a 1,000-sample subset. Failure rate reduction at $\alpha\!=\!4$ vs.\ baseline. GPT-2 Large is the exception (\S\ref{sec:neg_results}).}
-\label{tab:amp}
-\end{table}
-
-Key findings:
-
-\paragraph{Amplification reduces failures causally.} For four out of five models, scaling the top-10 inhibition heads by $\alpha\!=\!4$ reduces negation failure by 32--50\%, confirming these heads' causal role in suppression.
-
-\paragraph{Pythia responds more elastically.} Pythia-160M requires only $\alpha\!=\!1.75$ to begin showing clear reductions (7.6\%~$\to$~7.1\%), while GPT-2 Small requires $\alpha\!\geq\!2.0$ for meaningful effect. This suggests Pythia's inhibition heads are already closer to the suppression threshold.
-
-\paragraph{GPT-2 Large is resistant.} GPT-2 Large shows \emph{increased} failure rates under amplification (discussed in \S\ref{sec:neg_results}).
-
-\subsection{Semantic Vulnerability Audit}
-\label{sec:audit}
-
-We cross-referenced failure patterns with CounterFact's relation-type metadata to identify which \emph{kinds} of knowledge are structurally vulnerable to negation failure.
-
-\paragraph{Extreme variance by relation type.} Failure rates range from 0\% to 83.3\% depending on the semantic relation:
-
-\begin{itemize}
-\item \textbf{Highly vulnerable:} ``field of work'' (83.3\%), ``languages spoken'' (60.0\%), ``official language'' (50.0\%). These are \emph{soft-associative} relations where multiple valid completions exist, and the model's FFN strongly encodes the most frequent association.
-\item \textbf{Highly robust:} ``country of origin'' (0\%), ``position played'' (0\%), ``place of death'' (0\%). These are \emph{hard-categorical} relations where the target is uniquely defined.
-\end{itemize}
-
-\paragraph{The logit drop inversion.} In successful negation, the ``not'' token reduces the target logit by an average of 4.18 points. In \emph{failure} cases, the logit \emph{increases} by 1.04 points the negation paradoxically \emph{strengthens} the factual retrieval, exemplifying the Pink Elephant effect at the mechanistic level.
-
-\paragraph{Subject complexity.} Multi-word subjects produce more failures (15 of 24 failures have $\geq$2-word subjects). Wider associative FFN activity for complex entities creates a stronger memory signal, making suppression harder.
-
+\subsubsection{Activation Patching}
+Dataset-scale activation patching reveals that residual-stream patching at a single layer produces the most effective rescue of negation behavior. For \texttt{gpt2-small}, fully patching the residual stream at \textbf{layer 9} produces the highest rank-shift delta of $+3.69$ logit units. MLP-level patching peaks at Layer 0 ($+2.90$) while attention-level patching peaks at Layer 2 ($+0.22$). For \texttt{pythia-160m}, the best layer is \textbf{layer 3} with a residual-stream delta of $+5.34$, MLP peaks at Layer 0 ($+2.68$) and attention at Layer 8 ($+0.23$). The large MLP effect at Layer 0 for both models suggests that very early layers establish a strong factual prior that dominates the residual stream from the beginning.
 
 \subsection{Qualitative Case Analysis}
-\label{sec:qualitative}
 
-To complement the dataset-scale quantitative results, we selected ten representative cases from the CounterFact benchmark evaluated on both GPT-2 Small and Pythia-160M, choosing cases that jointly exhibited: (i) strong negation-induced rank drops, (ii) cross-model failure disagreements, and (iii) SGR--failure mismatches. This diversity ensures the analysis spans both hard negation successes and failures.
+To ground the aggregate statistics, we analysed 10 shared cases across both models.
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/qualitative/qualitative_case_comparison.png}
-  \caption{Average rank drop (negated minus positive prompt) for the target token across the ten selected cases. Larger values indicate a stronger mechanistic response to negation, regardless of failure outcome.}
-  \label{fig:qual_rank}
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{../../figures/qualitative/qualitative_layer_shift_heatmap.png}
+    \caption{Layer-wise DLA shift heatmap across selected qualitative examples for both models.}
+    \label{fig:qualitative_heatmap}
+\end{figure*}
+
+\textbf{Case 18316} (``The official religion of Urwah ibn Mas'ud is not [Islam]'') illustrates a severe, consistent failure. Both models fail: GPT-2 Small assigns the target its rank-1 position (rank drop $= -1$, SGR $= 65.9$); Pythia-160M jumps from rank 20 to rank 18 under negation (SGR $= 85.1$). The dominant layer-shift in GPT-2 Small is at layer 8 ($\Delta = -30.7$, top-3 layers explain 78.2\% of shift), indicating that a strong factual association implanted by MLP layers 5--8 overwhelms whatever inhibition is applied in layers 9--11.
+
+\textbf{Case 17579} (``...the language spoken is not [German]'') shows the most extreme SGR in the entire dataset: \textbf{2896.2} for GPT-2 Small, with a rank that only moves from 5 (positive) to 3 (negated). The target probability actually increases under negation. Layer 11 alone contributes a positive DLA shift of $+34.6$, confirming the Pink Elephant hypothesis: late-layer MLP activity boosts the very concept the model was instructed to suppress.
+
+\textbf{Case 13838} (``bpost, by not [Belgium]'') shows a model-asymmetry: GPT-2 Small successfully negates (rank $17{,}200 \to 40{,}250$, SGR $= 0.89$), while Pythia-160M completely fails (rank $17{,}786 \to 8{,}168$, SGR $= 20.0$). In Pythia, a Crossover Point is identified at layer 4, and MLP patching at layer 11 produces the best rescue ($\Delta = +21.96$), suggesting the suppression circuit exists but engages too late.
+
+\textbf{Contrastive success case} (Case 2295, ``John Feaver is originally from not [Fleet]''): both models succeed strongly, pushing the target to rank 41,777 (GPT-2) and 24,643 (Pythia). GPT-2 achieves this with SGR $= 0.0$ (zero measured inhibition), suggesting that for obscure entities, the FFN retrieval signal itself is so weak that no active inhibition is needed.
+
+\subsection{Soft Negation Analysis}
+
+We tested four negation variants on the full dataset: `` not'' (hard), `` unlikely to be'', `` rarely'', and `` maybe'' (ambiguous control). Results are shown in Table~\ref{tab:soft}.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Model} & \textbf{Negator} & \textbf{Fail\%} & \textbf{Med. SGR} \\
+\midrule
+gpt2-small & not & 11.40 & 27.09 \\
+gpt2-small & unlikely to be & 4.51 & 17.30 \\
+gpt2-small & rarely & 2.93 & 9.67 \\
+gpt2-small & maybe & 9.08 & 41.06 \\
+\midrule
+pythia-160m & not & 9.02 & 24.48 \\
+pythia-160m & unlikely to be & 3.98 & 22.94 \\
+pythia-160m & rarely & 3.52 & 25.36 \\
+pythia-160m & maybe & 9.18 & 35.03 \\
+\bottomrule
+\end{tabular}
+\caption{Failure rates and median SGR by model and negation type.}
+\label{tab:soft}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/soft_negation/failure_rate_comparison.png}
+    \caption{Comparison of negation failure rates across different negator terms.}
+    \label{fig:soft_negation}
 \end{figure}
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=\linewidth]{../../figures/qualitative/qualitative_layer_shift_heatmap.png}
-  \caption{Layer-wise negation-induced shift ($\Delta$ contribution) heatmap for GPT-2 Small (left) and Pythia-160M (right). Each row is a selected case; each column is a transformer layer. Red indicates layers that paradoxically \emph{increase} target logit under negation; blue indicates effective suppression.}
-  \label{fig:qual_heatmap}
-\end{figure}
+Our original hypothesis was that soft and probabilistic negators would fare \emph{worse} than the hard `` not'', as they provide a weaker logical signal. This hypothesis was \textbf{rejected}. The suffix `` rarely'' yields the \emph{lowest} failure rate of any tested negator for both models: 2.93\% (GPT-2 Small) and 3.52\% (Pythia-160M). `` unlikely to be'' similarly outperforms hard negation. Only `` maybe'' confirmed our hypothesis, performing nearly identically to `` not'' while producing the highest median SGR of all conditions (41.06 for GPT-2 Small, 35.03 for Pythia), validating that it fails to trigger the inhibition circuit at all and acts as a negative control.
 
-\paragraph{Rank drop is large even in successes.}
-Figure~\ref{fig:qual_rank} shows that the average rank drop for the target token is substantial across all ten cases, including those where the model correctly avoided the factual completion. This confirms that ``not'' does alter the model's internal distribution, but the redirect often lands on a semantically similar token rather than a structurally distinct suppression.
+The SGR edge-case analysis provides a critical nuance: for hard `` not'', \textbf{zero failures occur at SGR $\leq$ 1} across both models. For `` rarely'' in GPT-2 Small, 14 failures occur at SGR $\leq$ 1 (2.18\% failure mismatch rate). This suggests that `` rarely'' engages a qualitatively \emph{different} suppression pathway — one not captured by the FFN/Attention DLA dichotomy — where the failure mechanism is not purely attributable to retrieval overpowering inhibition.
 
-\paragraph{Negation-induced shift is concentrated in late layers.}
-Figure~\ref{fig:qual_heatmap} reveals a consistent pattern: the dominant shift layer for both models is concentrated in layer 10--11, with the top-3 layers accounting for 43--81\% of all absolute shift. This is fully consistent with our crossover analysis (Section~\ref{sec:crossover}), which locates the inhibition circuit at layers 5--9: the early layers \emph{detect} the negation signal, and the late layers deliver its cumulative suppression effect on the residual stream.
+\subsection{Emotion Negation Direction Analysis}
 
-\paragraph{Inter-model disagreement reveals circuit brittleness.}
-Several cases show failure on one model but success on the other (e.g.\ Case~8676 where GPT-2 Small succeeds at SGR$=0.012$ while Pythia-160M fails at SGR$=271$). These disagreements, absent in hard-categorical relations (geography, religion), concentrate in soft-associative relation types (occupation, language), corroborating the semantic audit findings in Section~\ref{sec:audit}.
+\subsubsection{Emotion Direction Geometry}
+For both models, a linear emotion direction vector is extracted per category (joy, sadness, anger, fear) as the difference in mean residual stream representations between affirmed and negated prompt sets. All categories achieve perfect probe accuracy (100\%) at the peak layer, confirming that the models do encode emotion as a linearly separable direction.
 
-% =================================================================
+In \texttt{gpt2-small}, all four emotions peak at \textbf{layer 11} (the final layer), with very high direction norms (70.6--79.2). The late-layer representation norm grows strongly from early layers (mean $\approx 13.5$) to late layers (mean $\approx 49$), a factor of $\sim 3.5$. In \texttt{pythia-160m}, anger, fear, and sadness peak at \textbf{layer 9}, while joy peaks at layer 11, with significantly lower norms (8.4--10.5). The late/early ratio is much smaller ($\sim 1.7$--$2.0$), suggesting Pythia distributes feature formation earlier across depth.
+
+\subsubsection{Negation Geometry and the Excluded Middle}
+When negating an emotion (e.g., ``I do not feel happy''), we measure whether the resulting representation is geometrically closer to the \emph{opposite} emotion or to a \emph{neutral} baseline. Table~\ref{tab:emotion} summarises the negation distance gap (distance to opposite minus distance to neutral; negative = closer to opposite).
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llrr}
+\toprule
+\textbf{Emotion} & \textbf{Model} & \textbf{Dist. Gap} & \textbf{Neutral Rate} \\
+\midrule
+joy & gpt2-small & $-20.6$ & 0\% \\
+sadness & gpt2-small & $-7.5$ & 21\% \\
+joy & pythia-160m & $-5.1$ & 22\% \\
+sadness & pythia-160m & $+0.89$ & 78\% \\
+\bottomrule
+\end{tabular}
+\caption{Negation distance gap and closer-to-neutral rate per model and emotion. Negative gap = representation is closer to opposite emotion.}
+\label{tab:emotion}
+\end{table}
+
+GPT-2 Small shows negative gaps for Joy ($-20.6$) and Sadness ($-7.5$), meaning negation moves the residual point toward the geometrically opposite pole in both cases. In 0\% of Joy trials does the model collapse ``not happy'' to neutral. Pythia-160M shows a divergent pattern: Joy has a small negative gap ($-5.1$), but Sadness has a \emph{positive} gap ($+0.89$), meaning ``not sad'' is geometrically closer to neutral than to joy. In 78\% of negated-sadness prompts, Pythia collapses to a neutral-like representation rather than navigating to the antonym.
+
+\subsubsection{Intervention Linearity}
+For each emotion, we inject a scaled version of the emotion direction ($\alpha \cdot \hat{d}$) into the residual stream and measure the model's logit response to classify the correct emotion token. The $R^2$ of a linear fit between $\alpha$ and the logit margin quantifies how linearly the emotion is encoded.
+
+In \texttt{gpt2-small}, Anger ($R^2 = 0.978$), Fear ($R^2 = 0.979$), and Sadness ($R^2 = 0.902$) are all highly linear. Joy is a striking exception: $R^2 = 0.224$, indicating its representation is non-linear or multi-modal and cannot be steered by a single linear vector. In \texttt{pythia-160m}, Joy ($R^2 = 0.936$), Fear ($R^2 = 0.872$), and Sadness ($R^2 = 0.963$) are highly linear, while Anger is the outlier ($R^2 = 0.287$). Despite high $R^2$ values, intervention slopes are uniformly tiny (order $10^{-4}$), indicating that emotional directions in these small models are orthogonal to the principal decision-making subspace; large $\alpha$ nudges are needed to alter output behavior.
+
 % =================================================================
 \section{Analysis}
 \label{sec:analysis}
 % =================================================================
 
-\subsection{Positive Results}
-\label{sec:pos_results}
-Our framework generated multiple strong positive findings validating the mechanistic approach:
-\begin{enumerate}
-\item \textbf{SGR\,$<$\,1 is sufficient for success.} When the inhibition signal exceeds retrieval, the model never fails at negation (100\% success rate).
-\item \textbf{FFN retrieval is logic-blind.} Mid-layer FFN DLA is essentially identical for positive and negated prompts, confirming that factual recall is context-independent.
-\item \textbf{Amplification is causal.} Scaling inhibition heads reduces failure rates by up to 50\%, confirming their functional role.
-\item \textbf{Semantic structure predicts failure.} Relations requiring soft-associative reasoning are mechanistically harder to inhibit than hard-categorical ones.
-\end{enumerate}
+\subsection{When is Recall Logic-Blind?}
+The per-layer DLA means confirm the core premise of the Competitive Gating Hypothesis. Early-to-mid FFN layers (approximately layers 3--8) inject strong, positive DLA contributions toward the factual target, with this pattern being \emph{nearly identical} between the positive and negated prompts. The FFN does not "see'' negation; it fires unconditionally based on the entity in context. The inhibition from attention heads is a distinctly late phenomenon: meaningful negative DLA from attention only appears in layers 9--11. A ``Crossover Point'' can be identified in the cumulative DLA as the first layer where total negative attention DLA exceeds total positive FFN DLA. Cases where the crossover occurs at a later layer, or not at all, are systematically associated with higher failure rates and larger SGR values.
 
-\subsection{Negative Results}
-\label{sec:neg_results}
-
-\paragraph{GPT-2 Large resists amplification.} Uniquely among the five models, GPT-2 Large shows \emph{increased} failure rates when inhibition heads are amplified ($11.9\% \to 13.4\%$ at $\alpha\!=\!4$). We hypothesise that at 36 layers and 20 heads, the inhibition circuit is more distributed, and amplifying only 10 heads creates interference with the broader suppression ensemble. This suggests that the simple ``top-$k$ heads'' amplification strategy does not scale linearly with model depth.
-
-\paragraph{Weak continuous correlations.} Spearman correlations between SGR and failure range from $r\!=\!0.008$ to $r\!=\!0.018$ for the larger models (Table~\ref{tab:stats}). This reflects a ceiling effect: when $>$83\% of samples have SGR\,$>$\,1, the metric's discriminative power operates primarily at its \emph{binary} threshold rather than as a continuous predictor.
-
-\subsection{Ablation Studies}
-\label{sec:ablations}
-While we leveraged activation patching to establish causal localization (Section \ref{sec:patching_results}) and artificial amplification to demonstrate causal sufficiency, we have not yet conducted formal network-wide ablation studies (e.g., iteratively removing or zeroing out individual inhibition heads). Activation patching provides a localized causal intervention, but comprehensive ablation tests will be necessary to confirm the strict \emph{necessity} of these identified heads across all contexts.
-
-\subsection{Emotional Negation Geometry}
-\label{sec:emotion}
-
-To probe whether the negation failure mechanism extends beyond factual recall, we performed a complementary geometric analysis on \emph{emotional} prompts (anger, fear, joy, sadness) in GPT-2 Small and Pythia-160M using latent-space steering vectors.
-
-\begin{figure}[htbp]
-  \centering
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/emotion_negation/gpt2-small/layer_wise_direction_norm.png}
-    \caption{GPT-2 Small}
-  \end{subfigure}\hfill
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/emotion_negation/pythia-160m/layer_wise_direction_norm.png}
-    \caption{Pythia-160M}
-  \end{subfigure}
-  \caption{Layer-wise emotional direction norm for four base emotions. GPT-2 Small peaks sharply at the final layer (L11); Pythia-160M peaks earlier and at lower magnitudes, reflecting architectural differences in residual scaling.}
-  \label{fig:emotion_norm}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_layer_dist.png}
+    \caption{Distribution of the Crossover Layer where logic overtakes memory signal.}
+    \label{fig:crossover}
 \end{figure}
 
-\begin{figure}[htbp]
-  \centering
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/emotion_negation/gpt2-small/negation_distance_gap.png}
-    \caption{GPT-2 Small: distance gap}
-  \end{subfigure}\hfill
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/emotion_negation/pythia-160m/negation_distance_gap.png}
-    \caption{Pythia-160M: distance gap}
-  \end{subfigure}
-  \caption{Negation distance gap (distance-to-opposite minus distance-to-neutral). Negative values indicate the negated representation moves closer to the semantic opposite rather than to a neutral state.}
-  \label{fig:emotion_gap}
-\end{figure}
+\subsection{The SGR as a Bounded Predictor}
+The SGR's predictive power is asymmetric. The iron rule that \emph{zero failures occur at SGR $\leq$ 1} holds for both models under hard ``not'' negation, validating the metric's lower bound. However, the majority of successes also have SGR $> 1$ (56\% for GPT-2 Small, 94\% for Pythia). This reveals a critical limitation: a high SGR is necessary but not sufficient for failure. Additional factors, such as the concentration of DLA in the final layers versus earlier layers and the sharpness of the crossover, further determine outcomes. The contrast between GPT-2 Small (where SGR does differentiate failures by median value) and Pythia-160M (where it does not) further suggests that Pythia has a more diffuse and robust inhibition circuit.
 
-\paragraph{Emotional features solidify in late layers.}
-As shown in Figure~\ref{fig:emotion_norm}, GPT-2 Small peaks at L11 (norms 70.6--79.2), while Pythia-160M peaks earlier (L9 for anger/fear/sadness) with lower magnitudes ($\sim$8.4--10.5). This mirrors our factual-recall findings: high-level semantic concepts require the full transformer depth to crystallise in the residual stream, consistent with the FFN-as-key-value-memory framework \cite{geva-etal-2021-transformer}.
+\subsection{Mechanistic Explanation of Soft Negation Success}
+The most counterintuitive finding of our work is that multi-word soft negators (`` rarely'', `` unlikely to be'') \emph{outperform} explicit boolean negation. The mechanistic analysis from the SGR pipeline offers an explanation: for `` rarely'' in GPT-2 Small, the median SGR collapses from 27.09 (hard ``not'') to \textbf{9.67}. Given that:
+\[
+\text{SGR} = \frac{\text{FFN retrieval}}{\text{Attention inhibition}}
+\]
+a reduced SGR implies either stronger inhibition or a weaker retrieval signal. Since explicit inhibition-head DLA analysis is not reported per negator in the current pipeline, the most likely explanation, consistent with the significant failure-rate drop, is that the `` rarely'' context \emph{weakens the FFN retrieval signal}: the model has encountered `` rarely'' far less frequently in the context of strong factual entities during pretraining, so the key-value memory fires less confidently. The `` maybe'' control acts as expected, producing the highest SGR and near-identical failure rates to hard negation, confirming that ambiguous hedges provide no inhibitory signal whatsoever.
 
-\paragraph{Residual stream expansion confirms deep encoding.}
-Both models show a large norm increase from early to late layers (GPT-2 Small: ${\sim}13\to50$; Pythia-160M: ${\sim}4\to8$). This matches the \emph{logit lens} framework: the model accumulates emotional evidence across layers, reaching semantic saturation just before unembedding.
+\subsection{Emotion Negation and the Geometry of Suppression}
+The emotion negation experiment reveals a qualitatively different failure mode from factual negation. Rather than a reflex retrieval that overwhelms a gate, the failure here is one of \emph{geometric incompleteness}: models do not have a learned representation of ``not-emotion'' that coherently maps to the opposite pole. GPT-2 Small, with its high-norm late-layer emotion directions, performs crude semantic inversion (moving toward the opposite), but Pythia-160M frequently collapses into a neutral representation (78\% of ``not sad'' trials). This ``Excluded Middle'' fallacy shows that even when a model encodes emotion linearly (high $R^2$), the negation operator does not reliably reverse the direction in latent space. Joy's non-linearity ($R^2 = 0.22$) in GPT-2 Small and Anger's in Pythia ($R^2 = 0.29$) suggest that high-frequency or polysemantic affect categories resist single-direction steering entirely.
 
-\paragraph{Negation induces crude geometric inversion, not logical flip.}
-Figure~\ref{fig:emotion_gap} shows that in GPT-2 Small, negated joy/sadness prompts yield negative distance gaps, meaning the representation moves toward the \emph{semantic opposite} rather than toward a neutral state. This is a geometric analogue of the Pink Elephant effect: ``not joy'' is encoded as ``sadness,'' not ``neutral,'' because the model focuses on the emotion's topic rather than its logical complement.
-
-\paragraph{Pythia-160M defaults to neutral on negation.}
-Pythia-160M exhibits a positive gap for sadness (0.88), meaning ``not sad'' converges to a neutral rather than a joyful state. This \emph{unipolar} representation suggests Pythia lacks the contrastive latent geometry GPT-2 uses for emotional inversion, consistent with higher closer-to-neutral rates (Joy: 0.22, Sadness: 0.77 vs.\ 0.0/0.20 for GPT-2 Small).
-
-\paragraph{Emotion linearity is emotion-specific.}
-Intervention $R^2$ values are high for most emotion--model pairs (anger/fear/sadness in GPT-2: $R^2\approx0.90$--$0.97$; fear/joy/sadness in Pythia: $R^2>0.87$), confirming the Linear Representation Hypothesis for those emotions. The outliers---joy in GPT-2 Small ($R^2=0.22$) and anger in Pythia-160M ($R^2=0.28$)---suggest those emotions are encoded as multi-modal or non-linear manifolds, likely due to their higher polysemy.
-
-\paragraph{Intervention slopes are near-zero across all emotions.}
-Despite high $R^2$, slopes are extremely small (${\sim}10^{-4}$), indicating the emotional steering direction is approximately orthogonal to the model's primary next-token prediction pathway. Changing emotional representations in the residual stream requires large-magnitude interventions to shift output behaviour---consistent with activation-addition findings and the strong FFN retrieval dominance observed in our factual negation experiments.
-
-\subsection{Soft Negation Variants}
-\label{sec:soft_negation}
-
-We extended the pipeline to test three additional negation constructions---\textit{``unlikely to be''}, \textit{``rarely''}, and \textit{``maybe''}---against the hard \textit{``not''} baseline across GPT-2 Small and Pythia-160M on the full CounterFact dataset. This tests whether the Competitive Gating Hypothesis generalises beyond single-token negation.
-
-\begin{table}[htbp]
-\centering\small
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}llrrr@{}}
-\toprule
-\textbf{Model} & \textbf{Negator} & \textbf{Fail\,\%} & \textbf{Med.\,SGR} & \textbf{SGR$>$1\,\%} \\
-\midrule
-\multirow{4}{*}{GPT-2 Small}
-  & not (hard)        & 11.40 & 27.1 & 99.1 \\
-  & unlikely to be    &  4.51 & 17.3 & 91.3 \\
-  & rarely            &  \textbf{2.93} &  \textbf{9.7} & 84.2 \\
-  & maybe             &  9.08 & 41.1 & 99.4 \\
-\midrule
-\multirow{4}{*}{Pythia-160M}
-  & not (hard)        &  9.02 & 24.5 & 100.0 \\
-  & unlikely to be    &  3.98 & 22.9 &  99.8 \\
-  & rarely            &  \textbf{3.52} & 25.4 &  99.9 \\
-  & maybe             &  9.18 & 35.0 &  99.9 \\
-\bottomrule
-\end{tabular}%
-}
-\caption{Failure rates and SGR statistics across four negation constructions. \textit{Rarely} achieves the lowest failure rate for both models.}
-\label{tab:soft_neg}
-\end{table}
-
-\begin{figure}[htbp]
-  \centering
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/soft_negation/failure_rate_comparison.png}
-    \caption{Failure rate per negator}
-  \end{subfigure}\hfill
-  \begin{subfigure}[t]{0.48\linewidth}
-    \includegraphics[width=\linewidth]{../../figures/soft_negation/median_sgr_comparison.png}
-    \caption{Median SGR per negator}
-  \end{subfigure}
-  \caption{Soft negation comparison across models. \textit{Rarely} and \textit{unlikely to be} consistently outperform hard \textit{not} on both failure rate and median SGR.}
-  \label{fig:soft_neg}
-\end{figure}
-
-\paragraph{Soft negators outperform hard negation (hypothesis partially rejected).}
-Our pre-experiment prediction was that soft negators would produce \emph{weaker} inhibition than hard ``not.'' The data refutes this for \textit{rarely} and \textit{unlikely to be}: \textit{rarely} reduces failure rates from 11.4\% to 2.9\% in GPT-2 Small and from 9.0\% to 3.5\% in Pythia-160M---a larger reduction than any amplification experiment achieved natively. This shows the inhibition circuit is sensitive to semantic content, not just the literal ``not'' token.
-
-\paragraph{Lower SGR under soft negation implicates retrieval reduction.}
-For GPT-2 Small, the median SGR drops from 27.1 (hard) to 9.7 (\textit{rarely}). Since $\text{SGR} = \text{FFN retrieval} / \text{Attn inhibition}$, the drop could reflect stronger inhibition or weaker retrieval. Given that \textit{rarely} and \textit{unlikely to be} are multi-word, low-frequency suffixes in the training corpus, we hypothesise the FFN encodes weaker factual associations for these constructions, reducing retrieval strength and making the inhibition circuit's task substantially easier.
-
-\paragraph{\textit{Maybe} as a control validates the pipeline.}
-\textit{Maybe} is an ambiguity marker, not a logical negation. Its failure rate (9.1\% / 9.2\%) is nearly identical to hard negation, and its median SGR is the \emph{highest} of all four negators, confirming that the model's inhibition circuit does not engage under ambiguous constructions. This control validates our pipeline: it correctly detects the absence of a suppressive signal.
-
-\paragraph{SGR boundary holds for soft negators with one exception.}
-Across all negators, SGR\,$<$\,1 continues to yield zero failures---except for \textit{rarely} in GPT-2 Small, where 14 failures occur at SGR\,$\leq$\,1 (2.18\% of failures). This single breakdown suggests \textit{rarely} occasionally recruits a qualitatively different circuit pathway that the FFN/Attention DLA split does not fully capture, motivating future head-level analysis.
-
-\subsection{Limitations and Challenges}
+% =================================================================
+\section{Limitations and Challenges}
 \label{sec:limitations}
+% =================================================================
+Our analysis isolates circuits exclusively using logit attribution and linear interventions in small models (up to 160M parameters). In larger open-source models, especially Mixture of Experts (MoE), identifying a single explicit "Crossover Point" becomes complicated by polysemantic routing. Furthermore, DLA struggles to capture highly non-linear head interactions, a problem that could be addressed in future work by using Sparse Autoencoders (SAEs) to unravel the dense superposition of the emotion vectors observed in our tests.
 
-\begin{itemize}
-\item \textbf{Hard negation focus.} The main benchmark uses ``is not'' negation. Soft constructions (``unlikely to be,'' ``rarely'') were tested as an extension (Section~\ref{sec:soft_negation}) and show substantially lower failure rates, but head-level DLA for these negators remains future work.
-\item \textbf{Single dataset.} All results use CounterFact. Generalisation to free-form negation in open-ended generation remains untested.
-\item \textbf{SGR\,$<$\,1 rarity.} As noted in Section~\ref{sec:sgrlt1}, the perfect success rate for SGR\,$<$\,1 is based on very few samples due to the architectural dominance of the retrieval circuit. Validating this boundary condition on larger models remains future work.
-\item \textbf{Top-$k$ head selection.} Our amplification strategy amplifies a fixed set of 10 heads. The GPT-2 Large results suggest this may be too coarse for deeper models.
-\item \textbf{Causal granularity.} Patching at the layer level conflates multiple head contributions. Head-level patching would provide finer causal resolution.
-\end{itemize}
+% =================================================================
+\section{Ethics Statement}
+% =================================================================
+This work analyses the internal mechanisms of publicly available language models (GPT-2 Small, Pythia-160M) using an established public dataset (CounterFact). No private data, personal information, or sensitive content is involved. Our findings about negation failure could inform alignment research by identifying specific architectural components that require strengthening for safer model deployment.
 
-\subsection{Ethics Statement}
-
-This work analyses the internal mechanisms of publicly available language models (GPT-2, Pythia) using an established public dataset (CounterFact). No private data, personal information, or sensitive content is involved. Our findings about negation failure could inform alignment research by identifying specific architectural components that require strengthening for safer model deployment.
-
-\subsection{Future Work}
-
-\begin{itemize}
-\item \textbf{Soft negation at head-level:} Perform head-level DLA for ``is unlikely to be'' and ``rarely'' to determine if soft negators recruit the same inhibition circuit as hard negation.
-\item \textbf{Head-level patching:} Patch individual inhibition heads rather than full layers for finer causal resolution.
-\item \textbf{Ablation:} Remove individual inhibition heads to confirm causal \emph{necessity} (complementing the amplification sufficiency evidence).
-\item \textbf{Larger models:} Test on GPT-2 XL, Pythia-1B, and instruction-tuned models to determine whether RLHF strengthens the inhibition circuit.
-\item \textbf{Free-form negation:} Evaluate on open-ended generation tasks beyond the structured CounterFact format.
-\end{itemize}
+% =================================================================
+\section{Future Work}
+% =================================================================
+Future efforts should expand from CounterFact to diverse behavioral tasks, tracking if SGR acts as a universal hallucination predictor across coding logic or mathematical reasoning. Additionally, moving from DLA to probing circuits with Sparse Autoencoders holds the promise of delineating exactly why concepts like "Joy" demonstrate highly non-linear, multi-modal features during negation patching.
 
 % =================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 % =================================================================
-
-We presented the Competitive Gating Hypothesis that negation failure in LLMs arises from a mechanistic imbalance between automatic factual retrieval (FFNs) and late-stage logical inhibition (attention heads) and provided comprehensive empirical support across five transformer models totalling over 80,000 evaluation points.
-
-The Signal-to-Gate Ratio (SGR) emerged as a powerful diagnostic metric: SGR\,$<$\,1 perfectly predicts negation success, and SGR\,$>$\,1 is a necessary condition for all observed failures. Crossover analysis pinpointed the critical inhibition boundary at layers 5--7 for 12-layer models, and activation patching causally confirmed that this boundary hosts the inhibition circuit. Artificial amplification reduced failure rates by up to 50\%, and semantic auditing revealed that soft-associative relations are systematically more vulnerable than hard-categorical ones.
-
-Our results have implications beyond negation: any task requiring a transformer to \emph{override} its most probable completion faces the same retrieval--inhibition bottleneck. The Competitive Gating Hypothesis provides a framework for understanding and potentially mitigating this class of failures.
-
+Negation is not solely an abstract reasoning failure, but a physical capacity failure in the internal information streams of language models. By formalizing the Signal-to-Gate Ratio (SGR) and performing causal amplifications, we bridge behavioral observations of hallucination with mechanistic circuit discovery. We demonstrate that the "Pink Elephant" effect occurs when the factual reflex mathematically overwhelms the logic gate. Providing physical metrics for these failures represents a critical step toward diagnosing and re-engineering resilient logical circuits in future alignment strategies.
 
 % =================================================================
 % References
