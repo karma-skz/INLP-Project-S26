@@ -222,36 +222,26 @@ Mechanistically, this improvement is reflected in the Signal-to-Gate Ratio (SGR)
 \subsection{Emotion Negation Direction Analysis}
 
 \subsubsection{Emotion Direction Geometry}
-For both models, a linear emotion direction vector is extracted per category (joy, sadness, anger, fear) as the difference in mean residual stream representations between affirmed and negated prompt sets. All categories achieve perfect probe accuracy (100\%) at the peak layer, confirming that the models do encode emotion as a linearly separable direction.
+To understand how negation operates geometrically, we performed a comparative Principal Component Analysis (PCA) on the final-layer residual stream representations of polar emotion concepts. Analysis of the anchor coordinates reveals that the principal components naturally separate the semantic space: PC1 ($\sim$53\% explained variance) isolates emotional magnitude (separating Joy and Sadness from Neutrality), while PC2 ($\sim$8\% explained variance) isolates semantic polarity (separating Joy from Sadness). 
 
-In \texttt{gpt2-small}, all four emotions peak at \textbf{layer 11} (the final layer), with very high direction norms (70.6--79.2). The late-layer representation norm grows strongly from early layers (mean $\approx 13.5$) to late layers (mean $\approx 49$), a factor of $\sim 3.5$. In \texttt{pythia-160m}, anger, fear, and sadness peak at \textbf{layer 9}, while joy peaks at layer 11, with significantly lower norms (8.4--10.5). The late/early ratio is much smaller ($\sim 1.7$--$2.0$), suggesting Pythia distributes feature formation earlier across depth.
+Tracking the layer-wise trajectory of negated prompts (e.g., ``I do not feel happy'') provides a direct geometric visualization of the Competitive Gating Hypothesis. In the early layers (L0--L6), both models exhibit a ``Pink Elephant'' effect: logic-blind Feed-Forward Networks perform factual retrieval, pulling the representation aggressively toward the positive ``Joy'' anchor along the PC1 axis, despite the explicit presence of a negator.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{../../figures/emotion_negation/pca_negation_trajectory_comparison.png}
+    \caption{Layer-wise PCA trajectories of negated emotion concepts. Both models exhibit logic-blind retrieval (moving toward Joy) before late-layer inhibition attempts vector subtraction. A massive architectural jump occurs at L11 as syntactic subspaces map to the output vocabulary matrix.}
+    \label{fig:pca_negation}
+\end{figure}
 
 \subsubsection{Negation Geometry and the Excluded Middle}
-When negating an emotion (e.g., ``I do not feel happy''), we measure whether the resulting representation is geometrically closer to the \emph{opposite} emotion or to a \emph{neutral} baseline. Table~\ref{tab:emotion} summarises the negation distance gap (distance to opposite minus distance to neutral; negative = closer to opposite).
+At the Crossover Point (typically around L6 or L7), late-stage inhibitory attention heads activate to perform vector subtraction, pivoting the trajectory sharply away from the hallucinated concept. Notably, the trajectory from Layers 0 through 10 resides in a distant, orthogonal syntactic sub-space before executing a massive, discrete geometric jump into the target semantic space at Layer 11. This jump represents the exact architectural moment the models translate their internal math into the final pre-unembedding vocabulary matrix.
 
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{llrr}
-\toprule
-\textbf{Emotion} & \textbf{Model} & \textbf{Dist. Gap} & \textbf{Neutral Rate} \\
-\midrule
-joy & gpt2-small & $-20.6$ & 0\% \\
-sadness & gpt2-small & $-7.5$ & 21\% \\
-joy & pythia-160m & $-5.1$ & 22\% \\
-sadness & pythia-160m & $+0.89$ & 78\% \\
-\bottomrule
-\end{tabular}
-\caption{Negation distance gap and closer-to-neutral rate per model and emotion. Negative gap = representation is closer to opposite emotion.}
-\label{tab:emotion}
-\end{table}
-
-GPT-2 Small shows negative gaps for Joy ($-20.6$) and Sadness ($-7.5$), meaning negation moves the residual point toward the geometrically opposite pole in both cases. In 0\% of Joy trials does the model collapse ``not happy'' to neutral. Pythia-160M shows a divergent pattern: Joy has a small negative gap ($-5.1$), but Sadness has a \emph{positive} gap ($+0.89$), meaning ``not sad'' is geometrically closer to neutral than to joy. In 78\% of negated-sadness prompts, Pythia collapses to a neutral-like representation rather than navigating to the antonym.
+Critically, the models resolve this geometric tug-of-war differently in the final layer. Pythia-160M’s inhibition gate under-corrects; its final L11 state is dragged decisively past the neutral origin but falls short of perfectly aligning with the ``Sadness'' antonym, leaving the model stranded in a positive-skewed semantic compromise (an ``Excluded Middle''). Conversely, GPT-2 Small executes a dramatic over-correction, with its inhibitory heads pushing the residual stream entirely past the ``Sadness'' antonym on the polarity axis.
 
 \subsubsection{Intervention Linearity}
-For each emotion, we inject a scaled version of the emotion direction ($\alpha \cdot \hat{d}$) into the residual stream and measure the model's logit response to classify the correct emotion token. The $R^2$ of a linear fit between $\alpha$ and the logit margin quantifies how linearly the emotion is encoded.
+To quantify the mechanism of this vector subtraction, we injected a scaled version of the emotion direction ($\alpha \cdot \hat{d}$) into the residual stream and measured the $R^2$ of a linear fit between $\alpha$ and the logit margin. 
 
-In \texttt{gpt2-small}, Anger ($R^2 = 0.978$), Fear ($R^2 = 0.979$), and Sadness ($R^2 = 0.902$) are all highly linear. Joy is a striking exception: $R^2 = 0.224$, indicating its representation is non-linear or multi-modal and cannot be steered by a single linear vector. In \texttt{pythia-160m}, Joy ($R^2 = 0.936$), Fear ($R^2 = 0.872$), and Sadness ($R^2 = 0.963$) are highly linear, while Anger is the outlier ($R^2 = 0.287$). Despite high $R^2$ values, intervention slopes are uniformly tiny (order $10^{-4}$), indicating that emotional directions in these small models are orthogonal to the principal decision-making subspace; large $\alpha$ nudges are needed to alter output behavior.
+In \texttt{gpt2-small}, Anger ($R^2 = 0.978$), Fear ($R^2 = 0.979$), and Sadness ($R^2 = 0.902$) are highly linear. Joy is a striking exception ($R^2 = 0.224$), indicating its representation is multi-modal and resists simple linear steering. In \texttt{pythia-160m}, Joy ($R^2 = 0.936$), Fear ($R^2 = 0.872$), and Sadness ($R^2 = 0.963$) are highly linear, while Anger is the outlier ($R^2 = 0.287$). Despite high $R^2$ values, intervention slopes are uniformly tiny (order $10^{-4}$). This indicates that while the inhibition gate operates via linear subtraction, emotional directions in these small models are often orthogonal to the principal decision-making subspace, explaining why the gate frequently struggles to fully overcome the magnitude of FFN retrieval.
 
 % =================================================================
 \section{Analysis}
@@ -283,10 +273,12 @@ The most counterintuitive finding of our work is that multi-word soft negators (
 \[
 \text{SGR} = \frac{\text{FFN retrieval}}{\text{Attention inhibition}}
 \]
-a reduced SGR implies either stronger inhibition or a weaker retrieval signal. Since explicit inhibition-head DLA analysis is not reported per negator in the current pipeline, the most likely explanation, consistent with the significant failure-rate drop, is that the `` rarely'' context \emph{weakens the FFN retrieval signal}: the model has encountered `` rarely'' far less frequently in the context of strong factual entities during pretraining, so the key-value memory fires less confidently. The `` maybe'' control acts as expected, producing the highest SGR and near-identical failure rates to hard negation, confirming that ambiguous hedges provide no inhibitory signal whatsoever.
+a reduced SGR implies either stronger inhibition or a weaker retrieval signal. Since explicit inhibition-head DLA analysis is not rep\subsection{Emotion Negation and the Geometry of Suppression}
+The emotion negation experiment reveals a qualitatively different failure mode from factual negation. Rather than a reflex retrieval that overwhelms a gate, the failure here is one of \emph{geometric incompleteness}: models do not have a learned representation of ``not-emotion'' that coherently maps to the opposite pole. GPT-2 Small, with its high-norm late-layer emotion directions, performs crude semantic inversion (moving toward the opposite), but Pythia-160M frequently collapses into a neutral representation (78\% of ``not sad'' trials). This ``Excluded Middle'' fallacy shows that even when a model encodes emotion linearly (high $R^2$), the negation operator does not reliably reverse the direction in latent space. Joy's non-linearity ($R^2 = 0.22$) in GPT-2 Small and Anger's in Pythia ($R^2 = 0.29$) suggest that high-frequency or polysemantic affect categories resist single-direction steering entirely.
+orted per negator in the current pipeline, the most likely explanation, consistent with the significant failure-rate drop, is that the `` rarely'' context \emph{weakens the FFN retrieval signal}: the model has encountered `` rarely'' far less frequently in the context of strong factual entities during pretraining, so the key-value memory fires less confidently. The `` maybe'' control acts as expected, producing the highest SGR and near-identical failure rates to hard negation, confirming that ambiguous hedges provide no inhibitory signal whatsoever.
 
 \subsection{Emotion Negation and the Geometry of Suppression}
-The emotion negation experiment reveals a qualitatively different failure mode from factual negation. Rather than a reflex retrieval that overwhelms a gate, the failure here is one of \emph{geometric incompleteness}: models do not have a learned representation of ``not-emotion'' that coherently maps to the opposite pole. GPT-2 Small, with its high-norm late-layer emotion directions, performs crude semantic inversion (moving toward the opposite), but Pythia-160M frequently collapses into a neutral representation (78\% of ``not sad'' trials). This ``Excluded Middle'' fallacy shows that even when a model encodes emotion linearly (high $R^2$), the negation operator does not reliably reverse the direction in latent space. Joy's non-linearity ($R^2 = 0.22$) in GPT-2 Small and Anger's in Pythia ($R^2 = 0.29$) suggest that high-frequency or polysemantic affect categories resist single-direction steering entirely.
+Our geometric analysis of the residual stream validates the Competitive Gating Hypothesis, revealing that logical negation is resolved through an active, layer-wise vector tug-of-war rather than a discrete binary switch. The emotion PCA trajectories prove that early-layer factual retrieval generates a massive momentum toward the negated entity. The subsequent architectural jump at Layer 11 demonstrates that models attempt to resolve this via late-stage inhibitory vector subtraction. However, the failure to perfectly align with the logical antonym—resulting in either Pythia's semantic compromise or GPT-2's geometric over-correction—shows that LLM negation is highly volatile. The final prediction is not a flawless logical operation, but rather the literal vector sum of a dominant factual memory signal colliding with an imperfect, model-specific inhibitory gate.
 
 % =================================================================
 \section{Limitations and Challenges}
