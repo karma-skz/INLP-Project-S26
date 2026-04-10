@@ -235,7 +235,7 @@ Table~\ref{tab:results} presents the core results. Three key observations emerge
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/sgr_histogram.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/sgr_histogram.png}
   \caption{SGR distribution across CounterFact for all models. Hatched bars denote failures. The dashed line marks SGR\,=\,1.}
   \label{fig:sgrhist}
 \end{figure}
@@ -290,7 +290,7 @@ Although SGR\,$<$\,1 cases are rare in small models (reflecting the architectura
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/per_layer_dla_mean.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/per_layer_dla_mean.png}
   \caption{Mean per-layer DLA on negated prompts. Left column: FFN contributions (retrieval). Right column: Attention contributions (inhibition). Rows separate success from failure cases.}
   \label{fig:perlayer}
 \end{figure}
@@ -307,7 +307,7 @@ Figure~\ref{fig:perlayer} reveals the mechanistic core of the hypothesis:
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/crossover_layer_dist.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_layer_dist.png}
   \caption{Distribution of crossover layers across models. The modal crossover occurs at layers 5--6 for 12-layer models.}
   \label{fig:crossover_dist}
 \end{figure}
@@ -316,7 +316,7 @@ The crossover layer analysis formalises the ``critical boundary'' concept. For 1
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/crossover_vs_failure.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_vs_failure.png}
   \caption{Crossover layer vs. negation outcome. Success cases cluster at layers 5--7; failures extend to layers 9--11 or lack a crossover entirely.}
   \label{fig:crossover_fail}
 \end{figure}
@@ -331,7 +331,7 @@ This establishes that the architecture has a \emph{window of opportunity}: if th
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/crossover_vs_sgr.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/crossover_vs_sgr.png}
   \caption{Crossover layer vs. SGR (log scale). Early crossovers correspond to SGR\,$<$\,1; late crossovers map to extreme SGR values.}
   \label{fig:crossover_sgr}
 \end{figure}
@@ -366,7 +366,7 @@ This consistent positioning at approximately 75--85\% depth suggests an architec
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth,height=0.85\textheight,keepaspectratio]{../../figures/activation_patching_rescue_rate.png}
+  \includegraphics[width=\linewidth,height=0.85\textheight,keepaspectratio]{../../figures/cross_model/patching_summary.png}
   \caption{Activation patching rescue rates across all five models. Patching mid-layer attention outputs produces the highest rescue rates, causally confirming the inhibition circuit's localisation.}
   \label{fig:patching}
 \end{figure}
@@ -385,7 +385,7 @@ This result provides the strongest \emph{causal} evidence in the project: supply
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\linewidth]{../../figures/extended_amplification.png}
+  \includegraphics[width=\linewidth]{../../figures/cross_model/amplification_summary.png}
   \caption{Cross-model amplification comparison. Failure rates for all five models as a function of inhibition head amplification scale $\alpha$. The baseline ($\alpha\!=\!1$) is marked.}
   \label{fig:amp}
 \end{figure}
@@ -435,8 +435,38 @@ We cross-referenced failure patterns with CounterFact's relation-type metadata t
 
 \paragraph{Subject complexity.} Multi-word subjects produce more failures (15 of 24 failures have $\geq$2-word subjects). Wider associative FFN activity for complex entities creates a stronger memory signal, making suppression harder.
 
+
+\subsection{Qualitative Case Analysis}
+\label{sec:qualitative}
+
+To complement the dataset-scale quantitative results, we selected ten representative cases from the CounterFact benchmark evaluated on both GPT-2 Small and Pythia-160M, choosing cases that jointly exhibited: (i) strong negation-induced rank drops, (ii) cross-model failure disagreements, and (iii) SGR--failure mismatches. This diversity ensures the analysis spans both hard negation successes and failures.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{../../figures/qualitative/qualitative_case_comparison.png}
+  \caption{Average rank drop (negated minus positive prompt) for the target token across the ten selected cases. Larger values indicate a stronger mechanistic response to negation, regardless of failure outcome.}
+  \label{fig:qual_rank}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{../../figures/qualitative/qualitative_layer_shift_heatmap.png}
+  \caption{Layer-wise negation-induced shift ($\Delta$ contribution) heatmap for GPT-2 Small (left) and Pythia-160M (right). Each row is a selected case; each column is a transformer layer. Red indicates layers that paradoxically \emph{increase} target logit under negation; blue indicates effective suppression.}
+  \label{fig:qual_heatmap}
+\end{figure}
+
+\paragraph{Rank drop is large even in successes.}
+Figure~\ref{fig:qual_rank} shows that the average rank drop for the target token is substantial across all ten cases, including those where the model correctly avoided the factual completion. This confirms that ``not'' does alter the model's internal distribution, but the redirect often lands on a semantically similar token rather than a structurally distinct suppression.
+
+\paragraph{Negation-induced shift is concentrated in late layers.}
+Figure~\ref{fig:qual_heatmap} reveals a consistent pattern: the dominant shift layer for both models is concentrated in layer 10--11, with the top-3 layers accounting for 43--81\% of all absolute shift. This is fully consistent with our crossover analysis (Section~\ref{sec:results}), which locates the inhibition circuit at layers 5--9: the early layers \emph{detect} the negation signal, and the late layers deliver its cumulative suppression effect on the residual stream.
+
+\paragraph{Inter-model disagreement reveals circuit brittleness.}
+Several cases show failure on one model but success on the other (e.g.\ Case~8676 where GPT-2 Small succeeds at SGR$=0.012$ while Pythia-160M fails at SGR$=271$). These disagreements, absent in hard-categorical relations (geography, religion), concentrate in soft-associative relation types (occupation, language), corroborating the semantic audit findings in Section~\ref{sec:audit}.
+
 % =================================================================
 \section{Evaluation}
+
 \label{sec:evaluation}
 % =================================================================
 
@@ -473,11 +503,118 @@ Our framework generated multiple strong positive findings validating the mechani
 \label{sec:ablations}
 While we leveraged activation patching to establish causal localization (Section \ref{sec:patching_results}) and artificial amplification to demonstrate causal sufficiency, we have not yet conducted formal network-wide ablation studies (e.g., iteratively removing or zeroing out individual inhibition heads). Activation patching provides a localized causal intervention, but comprehensive ablation tests will be necessary to confirm the strict \emph{necessity} of these identified heads across all contexts.
 
+\subsection{Emotional Negation Geometry}
+\label{sec:emotion}
+
+To probe whether the negation failure mechanism extends beyond factual recall, we performed a complementary geometric analysis on \emph{emotional} prompts (anger, fear, joy, sadness) in GPT-2 Small and Pythia-160M using latent-space steering vectors.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/emotion_negation/gpt2-small/layer_wise_direction_norm.png}
+    \caption{GPT-2 Small}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/emotion_negation/pythia-160m/layer_wise_direction_norm.png}
+    \caption{Pythia-160M}
+  \end{subfigure}
+  \caption{Layer-wise emotional direction norm for four base emotions. GPT-2 Small peaks sharply at the final layer (L11); Pythia-160M peaks earlier and at lower magnitudes, reflecting architectural differences in residual scaling.}
+  \label{fig:emotion_norm}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/emotion_negation/gpt2-small/negation_distance_gap.png}
+    \caption{GPT-2 Small: distance gap}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/emotion_negation/pythia-160m/negation_distance_gap.png}
+    \caption{Pythia-160M: distance gap}
+  \end{subfigure}
+  \caption{Negation distance gap (distance-to-opposite minus distance-to-neutral). Negative values indicate the negated representation moves closer to the semantic opposite rather than to a neutral state.}
+  \label{fig:emotion_gap}
+\end{figure}
+
+\paragraph{Emotional features solidify in late layers.}
+As shown in Figure~\ref{fig:emotion_norm}, GPT-2 Small peaks at L11 (norms 70.6--79.2), while Pythia-160M peaks earlier (L9 for anger/fear/sadness) with lower magnitudes ($\sim$8.4--10.5). This mirrors our factual-recall findings: high-level semantic concepts require the full transformer depth to crystallise in the residual stream, consistent with the FFN-as-key-value-memory framework \cite{geva-etal-2021-transformer}.
+
+\paragraph{Residual stream expansion confirms deep encoding.}
+Both models show a large norm increase from early to late layers (GPT-2 Small: ${\sim}13\to50$; Pythia-160M: ${\sim}4\to8$). This matches the \emph{logit lens} framework: the model accumulates emotional evidence across layers, reaching semantic saturation just before unembedding.
+
+\paragraph{Negation induces crude geometric inversion, not logical flip.}
+Figure~\ref{fig:emotion_gap} shows that in GPT-2 Small, negated joy/sadness prompts yield negative distance gaps, meaning the representation moves toward the \emph{semantic opposite} rather than toward a neutral state. This is a geometric analogue of the Pink Elephant effect: ``not joy'' is encoded as ``sadness,'' not ``neutral,'' because the model focuses on the emotion's topic rather than its logical complement.
+
+\paragraph{Pythia-160M defaults to neutral on negation.}
+Pythia-160M exhibits a positive gap for sadness (0.88), meaning ``not sad'' converges to a neutral rather than a joyful state. This \emph{unipolar} representation suggests Pythia lacks the contrastive latent geometry GPT-2 uses for emotional inversion, consistent with higher closer-to-neutral rates (Joy: 0.22, Sadness: 0.77 vs.\ 0.0/0.20 for GPT-2 Small).
+
+\paragraph{Emotion linearity is emotion-specific.}
+Intervention $R^2$ values are high for most emotion--model pairs (anger/fear/sadness in GPT-2: $R^2\approx0.90$--$0.97$; fear/joy/sadness in Pythia: $R^2>0.87$), confirming the Linear Representation Hypothesis for those emotions. The outliers---joy in GPT-2 Small ($R^2=0.22$) and anger in Pythia-160M ($R^2=0.28$)---suggest those emotions are encoded as multi-modal or non-linear manifolds, likely due to their higher polysemy.
+
+\paragraph{Intervention slopes are near-zero across all emotions.}
+Despite high $R^2$, slopes are extremely small (${\sim}10^{-4}$), indicating the emotional steering direction is approximately orthogonal to the model's primary next-token prediction pathway. Changing emotional representations in the residual stream requires large-magnitude interventions to shift output behaviour---consistent with activation-addition findings and the strong FFN retrieval dominance observed in our factual negation experiments.
+
+\subsection{Soft Negation Variants}
+\label{sec:soft_negation}
+
+We extended the pipeline to test three additional negation constructions---\textit{``unlikely to be''}, \textit{``rarely''}, and \textit{``maybe''}---against the hard \textit{``not''} baseline across GPT-2 Small and Pythia-160M on the full CounterFact dataset. This tests whether the Competitive Gating Hypothesis generalises beyond single-token negation.
+
+\begin{table}[htbp]
+\centering\small
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+\textbf{Model} & \textbf{Negator} & \textbf{Fail\,\%} & \textbf{Med.\,SGR} & \textbf{SGR$>$1\,\%} \\
+\midrule
+\multirow{4}{*}{GPT-2 Small}
+  & not (hard)        & 11.40 & 27.1 & 99.1 \\
+  & unlikely to be    &  4.51 & 17.3 & 91.3 \\
+  & rarely            &  \textbf{2.93} &  \textbf{9.7} & 84.2 \\
+  & maybe             &  9.08 & 41.1 & 99.4 \\
+\midrule
+\multirow{4}{*}{Pythia-160M}
+  & not (hard)        &  9.02 & 24.5 & 100.0 \\
+  & unlikely to be    &  3.98 & 22.9 &  99.8 \\
+  & rarely            &  \textbf{3.52} & 25.4 &  99.9 \\
+  & maybe             &  9.18 & 35.0 &  99.9 \\
+\bottomrule
+\end{tabular}
+\caption{Failure rates and SGR statistics across four negation constructions. \textit{Rarely} achieves the lowest failure rate for both models.}
+\label{tab:soft_neg}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/soft_negation/failure_rate_comparison.png}
+    \caption{Failure rate per negator}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{../../figures/soft_negation/median_sgr_comparison.png}
+    \caption{Median SGR per negator}
+  \end{subfigure}
+  \caption{Soft negation comparison across models. \textit{Rarely} and \textit{unlikely to be} consistently outperform hard \textit{not} on both failure rate and median SGR.}
+  \label{fig:soft_neg}
+\end{figure}
+
+\paragraph{Soft negators outperform hard negation (hypothesis partially rejected).}
+Our pre-experiment prediction was that soft negators would produce \emph{weaker} inhibition than hard ``not.'' The data refutes this for \textit{rarely} and \textit{unlikely to be}: \textit{rarely} reduces failure rates from 11.4\% to 2.9\% in GPT-2 Small and from 9.0\% to 3.5\% in Pythia-160M---a larger reduction than any amplification experiment achieved natively. This shows the inhibition circuit is sensitive to semantic content, not just the literal ``not'' token.
+
+\paragraph{Lower SGR under soft negation implicates retrieval reduction.}
+For GPT-2 Small, the median SGR drops from 27.1 (hard) to 9.7 (\textit{rarely}). Since $\text{SGR} = \text{FFN retrieval} / \text{Attn inhibition}$, the drop could reflect stronger inhibition or weaker retrieval. Given that \textit{rarely} and \textit{unlikely to be} are multi-word, low-frequency suffixes in the training corpus, we hypothesise the FFN encodes weaker factual associations for these constructions, reducing retrieval strength and making the inhibition circuit's task substantially easier.
+
+\paragraph{\textit{Maybe} as a control validates the pipeline.}
+\textit{Maybe} is an ambiguity marker, not a logical negation. Its failure rate (9.1\% / 9.2\%) is nearly identical to hard negation, and its median SGR is the \emph{highest} of all four negators, confirming that the model's inhibition circuit does not engage under ambiguous constructions. This control validates our pipeline: it correctly detects the absence of a suppressive signal.
+
+\paragraph{SGR boundary holds for soft negators with one exception.}
+Across all negators, SGR\,$<$\,1 continues to yield zero failures---except for \textit{rarely} in GPT-2 Small, where 14 failures occur at SGR\,$\leq$\,1 (2.18\% of failures). This single breakdown suggests \textit{rarely} occasionally recruits a qualitatively different circuit pathway that the FFN/Attention DLA split does not fully capture, motivating future head-level analysis.
+
 \subsection{Limitations and Challenges}
 \label{sec:limitations}
 
+
+
 \begin{itemize}
-\item \textbf{Hard negation only.} We test only ``is not'' negation. Softer constructions (``is unlikely to be,'' ``rarely'') may activate different circuits. Our pipeline supports these via the {\tt negator\_suffix} parameter, but large-scale results are pending.
+\item \textbf{Hard negation focus.} The main benchmark uses ``is not'' negation. Soft constructions (``unlikely to be,'' ``rarely'') were tested as an extension (Section~\ref{sec:soft_negation}) and show substantially lower failure rates, but head-level DLA for these negators remains future work.
 \item \textbf{Single dataset.} All results use CounterFact. Generalisation to free-form negation in open-ended generation remains untested.
 \item \textbf{SGR\,$<$\,1 rarity.} The perfect success rate at SGR\,$<$\,1 is based on very few samples ($n\!=\!1$ for GPT-2 Small's finite-SGR samples). While promising, larger sample sizes at this threshold are needed for stronger claims.
 \item \textbf{Top-$k$ head selection.} Our amplification strategy amplifies a fixed set of 10 heads. The GPT-2 Large results suggest this may be too coarse for deeper models.
