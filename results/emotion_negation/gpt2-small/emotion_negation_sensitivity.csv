@@ -1,0 +1,5 @@
+emotion,peak_layer,opposite_emotion,distance_to_neutral,distance_to_opposite,distance_gap,closer_to_neutral_rate
+anger,11,,140.684814453125,,,
+fear,11,,127.7172622680664,,,
+joy,11,sadness,127.56937408447266,106.92425537109375,-20.645118713378906,0.0
+sadness,11,joy,127.76715850830078,120.2696533203125,-7.497505187988281,0.20833333333333334

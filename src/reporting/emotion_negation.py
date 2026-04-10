@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import torch
 
 from src.analysis import EmotionDirectionResult, analyze_emotion_negation
@@ -45,6 +46,7 @@ def parse_args():
 
 def _save_metric_plots(
     model_name: str,
+    summary_df: pd.DataFrame,
     peak_df: pd.DataFrame,
     negation_peak_df: pd.DataFrame,
     linearity_peak_df: pd.DataFrame,
@@ -53,10 +55,28 @@ def _save_metric_plots(
     os.makedirs(output_dir, exist_ok=True)
     paths: list[str] = []
 
+    if not summary_df.empty:
+        # Layer-wise plot
+        fig, ax = plt.subplots(figsize=(12, 7))
+        sns.lineplot(x='layer', y='direction_norm', hue='emotion', data=summary_df, palette='viridis', ax=ax)
+        ax.set_title(f'{model_name}: Layer-wise Emotion Direction Norm', fontsize=16)
+        ax.set_xlabel('Layer', fontsize=12)
+        ax.set_ylabel('Direction Norm', fontsize=12)
+        ax.legend(title='Emotion')
+        fig.tight_layout()
+        out = os.path.join(output_dir, "layer_wise_direction_norm.png")
+        fig.savefig(out, dpi=180)
+        plt.close(fig)
+        paths.append(out)
+
     if not peak_df.empty:
-        plot_df = peak_df.sort_values("emotion").reset_index(drop=True)
-        fig, ax = plt.subplots(figsize=(8, 4.5))
-        bars = ax.bar(plot_df["emotion"], plot_df["peak_direction_norm"], color="#4C78A8")
+        # Sort for consistent plotting
+        plot_df = peak_df.sort_values("peak_direction_norm", ascending=False).reset_index(drop=True)
+        
+        # Peak direction norm plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        viridis = plt.get_cmap("viridis")
+        bars = ax.bar(plot_df["emotion"], plot_df["peak_direction_norm"], color=viridis(np.linspace(0, 1, len(plot_df))))
         for bar, layer in zip(bars, plot_df["peak_layer"]):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
@@ -68,9 +88,9 @@ def _save_metric_plots(
             )
         lo, hi = dynamic_axis_limits(plot_df["peak_direction_norm"], floor=0.0)
         ax.set_ylim(lo, hi)
-        ax.set_title(f"{model_name}: Peak direction strength by emotion")
-        ax.set_xlabel("Emotion")
-        ax.set_ylabel("Peak direction norm")
+        ax.set_title(f"{model_name}: Peak Direction Norm by Emotion", fontsize=16)
+        ax.set_xlabel("Emotion", fontsize=12)
+        ax.set_ylabel("Peak Direction Norm", fontsize=12)
         fig.tight_layout()
         out = os.path.join(output_dir, "peak_direction_strength.png")
         fig.savefig(out, dpi=180)
@@ -240,6 +260,7 @@ def run_emotion_negation_report(
         linearity_peak_df.to_csv(linearity_summary_csv, index=False)
         figure_paths = _save_metric_plots(
             model_name=model_name,
+            summary_df=result.summary,
             peak_df=peak_df,
             negation_peak_df=negation_peak_df,
             linearity_peak_df=linearity_peak_df,
