@@ -1,236 +1,120 @@
 """
-run_pipeline.py
-================
-Top-level entry point for the full Pink Elephants pipeline.
-
-Stages
-------
-  1. Load model(s)
-  2. Load CounterFact dataset
-  3. Run DLA + SGR benchmark on each model
-  4. Analyse SGR distribution and generate figures
-  5. Per-head decomposition to identify inhibition heads
-  6. Artificial amplification experiment
-  7. Statistical analysis and final report
-
-Usage
------
-    # Minimal run — GPT-2, 200 samples
-    python run_pipeline.py
-
-    # Full run — both models, all samples
-    python run_pipeline.py --models gpt2-small pythia-160m --max_samples -1
-
-    # Soft Negation Sweep — Test different soft negator types
-    python run_pipeline.py --negator_suffix " not" " unlikely to be" " rarely"
-
-    # Skip heavy stages
-    python run_pipeline.py --skip_per_head --skip_amplification
+Lightweight pipeline entrypoint for running the benchmark and intervention
+summaries without generating graphs.
 """
 
 from __future__ import annotations
 
 import argparse
+import gc
 import os
 
 import pandas as pd
 import torch
 
-from src.dataset  import load_counterfact
-from src.models   import MODEL_SHORTNAMES, load_model
-from src.benchmark import run_benchmark, analyse_sgr_distribution
-from src.analysis  import compute_head_dla_batch, per_head_dla, select_top_heads
-from src.analysis  import amplification_sweep, dataset_amplification_experiment
-from src.metrics   import summary_stats, sgr_vs_failure_correlation, compare_models, negation_failure_rate
+from src.analysis import compute_head_dla_batch, dataset_activation_patching_experiment, dataset_amplification_experiment, select_top_heads
+from src.benchmark import analyse_sgr_distribution, run_benchmark
+from src.dataset import load_counterfact
+from src.models import CANONICAL_MODEL_NAMES, MODEL_SHORTNAMES, load_model
 from src.utils import benchmark_csv_path
 
-# ── reproducibility ──────────────────────────────────────────────────────────
+
 torch.manual_seed(67)
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def parse_args():
-    p = argparse.ArgumentParser(description="Pink Elephants — full pipeline")
-    p.add_argument("--models", nargs="+",
-                   default=["gpt2-small"],
-                   choices=["gpt2-small", "gpt2", "gpt2-medium", "gpt2-large", "pythia-160m", "pythia", "pythia-410m"],
-                   help="Models to benchmark (default: gpt2-small)")
-    p.add_argument("--negator_suffix", nargs="+",
-                   default=[" not"],
-                   help="Suffixes indicating negation style (e.g. ' not' or ' rarely')")
-    p.add_argument("--max_samples", type=int, default=200,
-                   help="Max CounterFact samples per model (-1 = all, default: 200)")
-    p.add_argument("--results_dir", default="results",
-                   help="Directory for CSV outputs (default: results/)")
-    p.add_argument("--fig_dir", default="figures",
-                   help="Directory for figures (default: figures/)")
-    p.add_argument("--top_k_heads", type=int, default=10,
-                   help="Number of top inhibition heads to select for amplification")
-    p.add_argument("--amp_scales", nargs="+", type=float,
-                   default=[0.5, 1.0, 2.0, 3.0, 4.0],
-                   help="Amplification scales to sweep (default: 0.5 1 2 3 4)")
-    p.add_argument("--skip_per_head", action="store_true",
-                   help="Skip per-head decomposition")
-    p.add_argument("--skip_amplification", action="store_true",
-                   help="Skip amplification experiment")
-    return p.parse_args()
+    parser = argparse.ArgumentParser(description="Run the main negation benchmark without graphs")
+    parser.add_argument("--models", nargs="+", default=CANONICAL_MODEL_NAMES, choices=list(MODEL_SHORTNAMES.keys()), help="Models to benchmark")
+    parser.add_argument("--negator_suffix", default=" not", help="Suffix appended to build negated prompts")
+    parser.add_argument("--max_samples", type=int, default=200, help="Max CounterFact samples per model (-1 = all)")
+    parser.add_argument("--results_dir", default="results", help="Directory for CSV outputs")
+    parser.add_argument("--analysis_samples", type=int, default=100, help="Samples used for head selection and amplification")
+    parser.add_argument("--patching_samples", type=int, default=20, help="Samples used for dataset patching summaries")
+    parser.add_argument("--top_k_heads", type=int, default=10, help="Number of top inhibition heads to summarize")
+    parser.add_argument("--amp_scales", nargs="+", type=float, default=[0.5, 1.0, 2.0, 4.0], help="Amplification scales")
+    parser.add_argument("--skip_interventions", action="store_true", help="Skip head-selection, amplification, and patching summaries")
+    return parser.parse_args()
 
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def main():
-    args  = parse_args()
+    args = parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
-    os.makedirs(args.fig_dir,     exist_ok=True)
 
     model_names = [MODEL_SHORTNAMES.get(model_name, model_name) for model_name in args.models]
-    max_s       = None if args.max_samples < 0 else args.max_samples
+    max_samples = None if args.max_samples < 0 else args.max_samples
 
-    all_dfs = []
+    all_dfs: list[pd.DataFrame] = []
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # Stage 1–3: Benchmark each model and negator
-    # ══════════════════════════════════════════════════════════════════════════
     for model_name in model_names:
-        for neg_suffix in args.negator_suffix:
-            run_title = f"{model_name} (Negator: '{neg_suffix}')"
-            # create safe filename element for neg suffix:
-            print(f"\n{'#'*70}")
-            print(f"# Model: {run_title}")
-            print(f"{'#'*70}\n")
-    
-            model = load_model(model_name)
-    
-            # Load dataset (validate single-token targets against this model)
-            pairs = load_counterfact(max_samples=max_s, model=model, negator_suffix=neg_suffix)
-    
-            # Run benchmark
-            csv_path = str(benchmark_csv_path(args.results_dir, model_name, neg_suffix))
-            
-            # Since SGR analysis/metrics might expect columns or we might want to compare 
-            # across negations later, we add a negator column tracking in the analysis scripts.
-            df = run_benchmark(
+        print("\n" + "#" * 70)
+        print(f"# Model: {model_name}")
+        print("#" * 70 + "\n")
+
+        model = load_model(model_name)
+        pairs = load_counterfact(max_samples=max_samples, model=model, negator_suffix=args.negator_suffix)
+
+        csv_path = str(benchmark_csv_path(args.results_dir, model_name, args.negator_suffix))
+        df = run_benchmark(model, pairs, model_name=model_name, output_csv=csv_path)
+        df["negator"] = args.negator_suffix
+        df.to_csv(csv_path, index=False)
+        all_dfs.append(df)
+
+        if not args.skip_interventions:
+            analysis_pairs = pairs[: min(len(pairs), args.analysis_samples)]
+            patch_pairs = analysis_pairs[: min(len(analysis_pairs), args.patching_samples)]
+
+            mean_delta = compute_head_dla_batch(model, analysis_pairs, top_k=args.top_k_heads)
+            top_heads = select_top_heads(mean_delta, top_k=args.top_k_heads)
+            print(f"Top heads for {model_name}: {top_heads[:5]}")
+
+            amp_summary = dataset_amplification_experiment(
                 model,
-                pairs,
-                model_name=model_name,
-                output_csv=csv_path,
+                pairs=analysis_pairs,
+                heads=top_heads,
+                scales=args.amp_scales,
+                verbose=True,
             )
-            # Annotate with the negator
-            df['negator'] = neg_suffix
-            all_dfs.append(df)
-            
-            # re-save dataframe with annotation just in case
-            df.to_csv(csv_path, index=False)
+            patch_summary = dataset_activation_patching_experiment(
+                model,
+                patch_pairs,
+                max_samples=None,
+                verbose=True,
+            )
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # Stage 4: SGR distribution analysis
-    # ══════════════════════════════════════════════════════════════════════════
+            print(
+                f"Amplification summary for {model_name}: baseline={amp_summary['baseline_rate']:.1%}, "
+                f"best={amp_summary['best_rate']:.1%} @ scale={amp_summary['best_scale']:.2f}"
+            )
+            best_patch = patch_summary["best_overall"]
+            if best_patch is not None:
+                print(
+                    f"Patching summary for {model_name}: best={best_patch['patch_type']} "
+                    f"L{best_patch['layer']} (Δ {best_patch['delta']:+.3f})"
+                )
+
+        del model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     combined_df = pd.concat(all_dfs, ignore_index=True)
-
-    print(f"\n{'#'*70}")
-    print("# Stage 4: SGR Distribution Analysis")
-    print(f"{'#'*70}\n")
-
-    analyse_sgr_distribution(combined_df, fig_dir=args.fig_dir)
-
-    # Combined CSV
     combined_csv = os.path.join(args.results_dir, "all_models_benchmark.csv")
     combined_df.to_csv(combined_csv, index=False)
-    print(f"Combined results → {combined_csv}")
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # Stage 5: Per-head decomposition (first model, first negator, subsample for speed)
-    # ══════════════════════════════════════════════════════════════════════════
-    if not args.skip_per_head:
-        primary_model_name = model_names[0]
-        primary_negator = args.negator_suffix[0]
-        print(f"\n{'#'*70}")
-        print(f"# Stage 5: Per-Head Decomposition ({primary_model_name}, '{primary_negator}')")
-        print(f"{'#'*70}\n")
+    sgr_summary = analyse_sgr_distribution(combined_df, verbose=False)
+    print("\nBenchmark summary:")
+    print(
+        sgr_summary["benchmark_summary"][
+            ["model_name", "n_samples", "n_failures", "failure_rate", "median_rank_shift", "median_sgr"]
+        ].to_string(index=False)
+    )
+    print("\nSGR edge cases:")
+    print(sgr_summary["edge_cases"].to_string(index=False))
 
-        p_model = load_model(primary_model_name)
-        p_pairs = load_counterfact(max_samples=min(max_s or 200, 200), model=p_model, negator_suffix=primary_negator)
-
-        # Compute mean delta across dataset
-        mean_delta = compute_head_dla_batch(
-            p_model, p_pairs, top_k=args.top_k_heads
-        )
-
-        # Identify top inhibition heads
-        top_heads = select_top_heads(mean_delta, top_k=args.top_k_heads)
-        print(f"\nTop-{args.top_k_heads} inhibition heads: {top_heads}")
-
-        # Visualise on the canonical example
-        from src.analysis.per_head import plot_head_dla_heatmap
-        h_pos, h_neg = per_head_dla(
-            p_model,
-            "The capital of France is",
-            f"The capital of France is{primary_negator}",
-            " Paris",
-        )
-        plot_head_dla_heatmap(h_pos, h_neg,
-                              target_token=" Paris",
-                              fig_dir=args.fig_dir)
-
-        # ══════════════════════════════════════════════════════════════════════
-        # Stage 6: Amplification experiment
-        # ══════════════════════════════════════════════════════════════════════
-        if not args.skip_amplification:
-            print(f"\n{'#'*70}")
-            print("# Stage 6: Artificial Amplification")
-            print(f"{'#'*70}\n")
-
-            # Single-prompt sweep
-            amplification_sweep(
-                p_model,
-                positive_prompt="The capital of France is",
-                negated_prompt=f"The capital of France is{primary_negator}",
-                target_token=" Paris",
-                heads=top_heads,
-                scales=args.amp_scales,
-                fig_dir=args.fig_dir,
-            )
-
-            # Dataset-level failure rate vs scale
-            dataset_amplification_experiment(
-                p_model,
-                pairs=p_pairs,
-                heads=top_heads,
-                scales=args.amp_scales,
-                fig_dir=args.fig_dir,
-            )
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # Stage 7: Statistical analysis
-    # ══════════════════════════════════════════════════════════════════════════
-    print(f"\n{'#'*70}")
-    print("# Stage 7: Statistical Analysis")
-    print(f"{'#'*70}\n")
-
-    summary_stats(combined_df)
-
-    corr_df = sgr_vs_failure_correlation(combined_df)
-    print("\nSGR ↔ Failure Correlations:")
-    print(corr_df.to_string(index=False))
-
-    nf_df = negation_failure_rate(combined_df)
-    print("\nNegation Failure Rates (with 95% CI):")
-    print(nf_df.to_string(index=False))
-
-    # Cross-model comparison (if >1 model)
-    if len(model_names) > 1:
-        compare_models(combined_df, model_names[0], model_names[1])
-
-    print(f"\n{'='*70}")
+    print("\n" + "=" * 70)
     print("PIPELINE COMPLETE")
-    print(f"  Results  → {args.results_dir}/")
-    print(f"  Figures  → {args.fig_dir}/")
-    print(f"{'='*70}")
+    print(f"Results -> {args.results_dir}/")
+    print("=" * 70)
 
 
 if __name__ == "__main__":

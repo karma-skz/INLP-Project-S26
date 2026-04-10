@@ -50,6 +50,14 @@ MODEL_SHORTNAMES: dict[str, str] = {
     "pythia-410m": "pythia-410m",
 }
 
+CANONICAL_MODEL_NAMES: list[str] = [
+    "gpt2-small",
+    "gpt2-medium",
+    "gpt2-large",
+    "pythia-160m",
+    "pythia-410m",
+]
+
 
 def _patch_transformerlens_hf_compat() -> None:
     """
@@ -84,6 +92,7 @@ def _patch_transformerlens_hf_compat() -> None:
 def load_model(
     model_name: str = "gpt2-small",
     device: str | None = None,
+    dtype: str | None = None,
     fold_ln: bool = True,
     center_writing_weights: bool = True,
     center_unembed: bool = True,
@@ -125,9 +134,13 @@ def load_model(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    if dtype is None:
+        dtype = "float16" if device == "cuda" else "float32"
+
     model = HookedTransformer.from_pretrained(
         tl_name,
         device=device,
+        dtype=dtype,
         fold_ln=fold_ln,
         center_writing_weights=center_writing_weights,
         center_unembed=center_unembed,
@@ -143,7 +156,7 @@ def load_model(
         print(
             f"Loaded  {tl_name:<20}  "
             f"layers={cfg.n_layers}  heads={cfg.n_heads}  "
-            f"d_model={cfg.d_model}  device={device}"
+            f"d_model={cfg.d_model}  device={device}  dtype={dtype}"
         )
 
     return model

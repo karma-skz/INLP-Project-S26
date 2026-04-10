@@ -33,17 +33,11 @@ Usage
 
 from __future__ import annotations
 
-import os
 from typing import Dict, List, Optional, Tuple
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from transformer_lens import HookedTransformer
-
-from src.utils import dynamic_axis_limits
 
 
 # ---------------------------------------------------------------------------
@@ -184,42 +178,18 @@ def amplification_sweep(
                   f"neg_logit={neg_logits[-1]:+.3f}  "
                   f"gap={pos_logits[-1]-neg_logits[-1]:+.3f}")
 
-    # ── Figure ───────────────────────────────────────────────────────────────
-    os.makedirs(fig_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
-
-    axes[0].plot(scales, pos_logits, "o-", color="steelblue", linewidth=2,
-                 label="Positive prompt")
-    axes[0].plot(scales, neg_logits, "s-", color="salmon",    linewidth=2,
-                 label="Negated prompt")
-    axes[0].axvline(x=1.0, color="gray", linestyle="--", linewidth=1, label="scale=1 (baseline)")
-    axes[0].set_xlabel("Amplification scale")
-    axes[0].set_ylabel(f"Target logit (\"{target_token}\")")
-    axes[0].set_title("Target logit vs Inhibition Head Scale")
-    axes[0].legend()
-    axes[0].set_ylim(*dynamic_axis_limits(pos_logits + neg_logits))
-
     gap = [p - n for p, n in zip(pos_logits, neg_logits)]
-    axes[1].plot(scales, gap, "D-", color="mediumorchid", linewidth=2)
-    axes[1].axvline(x=1.0, color="gray", linestyle="--", linewidth=1)
-    axes[1].axhline(y=0, color="black", linewidth=0.5)
-    axes[1].set_xlabel("Amplification scale")
-    axes[1].set_ylabel("Positive − Negated logit (gap)")
-    axes[1].set_title("Separation between prompts")
-    axes[1].set_ylim(*dynamic_axis_limits(gap))
+    del fig_dir, filename
 
-    head_str = ", ".join(f"({l},{h})" for l, h in heads[:5])
-    if len(heads) > 5:
-        head_str += "…"
-    fig.suptitle(f"Artificial Amplification — heads: [{head_str}]", fontsize=11)
-    plt.tight_layout()
-
-    path = os.path.join(fig_dir, filename)
-    plt.savefig(path, dpi=150)
-    plt.close()
-    print(f"Saved {path}")
-
-    return {"scales": scales, "pos_logits": pos_logits, "neg_logits": neg_logits, "gap": gap, "figure_path": path}
+    best_gap_idx = int(np.argmax(gap)) if gap else 0
+    return {
+        "scales": scales,
+        "pos_logits": pos_logits,
+        "neg_logits": neg_logits,
+        "gap": gap,
+        "best_gap_scale": scales[best_gap_idx] if scales else np.nan,
+        "best_gap": gap[best_gap_idx] if gap else np.nan,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -254,18 +224,26 @@ def dataset_amplification_experiment(
     if scales is None:
         scales = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0]
 
+    prepared_pairs: list[tuple[object, int, int]] = []
+    for pair in pairs:
+        try:
+            target_id = model.to_single_token(pair.target_token)
+        except Exception:
+            continue
+
+        pos_logits = model(model.to_tokens(pair.positive_prompt))
+        pos_rank = int(
+            (pos_logits[0, -1, :] >= pos_logits[0, -1, target_id]).sum().item()
+        )
+        prepared_pairs.append((pair, target_id, pos_rank))
+
     failure_rates = []
 
     for scale in scales:
         failures = 0
         total    = 0
 
-        for pair in tqdm(pairs, desc=f"Amp scale={scale:.1f}", leave=False):
-            try:
-                target_id = model.to_single_token(pair.target_token)
-            except Exception:
-                continue
-
+        for pair, target_id, pos_rank in tqdm(prepared_pairs, desc=f"Amp scale={scale:.1f}", leave=False):
             fwd_hooks = [
                 (f"blocks.{layer}.attn.hook_result",
                  _make_head_scale_hook(head, scale))
@@ -277,12 +255,6 @@ def dataset_amplification_experiment(
                 (amp_logits[0, -1, :] >= amp_logits[0, -1, target_id]).sum().item()
             )
 
-            # Positive prompt rank (no hooks — it's the reference)
-            pos_logits = model(model.to_tokens(pair.positive_prompt))
-            pos_rank   = int(
-                (pos_logits[0, -1, :] >= pos_logits[0, -1, target_id]).sum().item()
-            )
-
             if amp_rank < pos_rank:
                 failures += 1
             total += 1
@@ -292,19 +264,19 @@ def dataset_amplification_experiment(
         if verbose:
             print(f"  scale={scale:.2f}  failure_rate={rate:.1%}  ({failures}/{total})")
 
-    # ── Figure ───────────────────────────────────────────────────────────────
-    os.makedirs(fig_dir, exist_ok=True)
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(scales, failure_rates, "o-", color="steelblue", linewidth=2)
-    ax.axvline(x=1.0, color="gray", linestyle="--", linewidth=1, label="baseline")
-    ax.set_xlabel("Inhibition head amplification scale")
-    ax.set_ylabel("Negation failure rate")
-    ax.set_title("Can Amplifying Inhibition Heads Fix Negation Failures?")
-    ax.set_ylim(*dynamic_axis_limits(failure_rates, floor=0.0, ceil=1.0))
-    ax.legend()
-    plt.tight_layout()
-    path = os.path.join(fig_dir, filename)
-    plt.savefig(path, dpi=150)
-    plt.close()
-    print(f"Saved {path}")
-    return {"scales": scales, "failure_rates": failure_rates, "figure_path": path}
+    del fig_dir, filename
+
+    baseline_idx = scales.index(1.0) if 1.0 in scales else None
+    baseline_rate = failure_rates[baseline_idx] if baseline_idx is not None else np.nan
+    best_idx = int(np.nanargmin(failure_rates)) if failure_rates else 0
+    best_rate = failure_rates[best_idx] if failure_rates else np.nan
+
+    return {
+        "scales": scales,
+        "failure_rates": failure_rates,
+        "baseline_rate": baseline_rate,
+        "best_rate": best_rate,
+        "best_scale": scales[best_idx] if scales else np.nan,
+        "absolute_improvement": (baseline_rate - best_rate) if np.isfinite(baseline_rate) and np.isfinite(best_rate) else np.nan,
+        "n_pairs": len(prepared_pairs),
+    }

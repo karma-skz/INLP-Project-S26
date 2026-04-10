@@ -1,262 +1,132 @@
 """
-src/benchmark/sgr_analysis.py
-===============================
-Analysis and visualisation of the Signal-to-Gate Ratio (SGR) distribution
-over the full CounterFact benchmark.
+Summary helpers for the Signal-to-Gate Ratio (SGR) benchmark.
 
-Produces
---------
-  figures/sgr_histogram.png         — SGR distribution, colour-coded by failure
-  figures/sgr_failure_rate.png      — failure rate as a function of SGR threshold
-  figures/sgr_model_comparison.png  — GPT-2 vs Pythia (when both present)
-  figures/per_layer_dla_mean.png    — mean per-layer FFN / Attn DLA heatmap
-
-Usage
------
-    from src.benchmark import analyse_sgr_distribution
-    import pandas as pd
-
-    df = pd.read_csv("results/gpt2_benchmark.csv")
-    analyse_sgr_distribution(df, fig_dir="figures")
-
-    # Or combine two model CSVs:
-    df2 = pd.read_csv("results/pythia_benchmark.csv")
-    analyse_sgr_distribution(pd.concat([df, df2]), fig_dir="figures")
+The original project generated several benchmark plots from these results.
+This module now keeps the analysis text-first so the reports can stay
+compact and easier to explain.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Optional
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-
-from src.utils import dynamic_axis_limits
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _parse_layer_arr(series: pd.Series) -> np.ndarray:
-    """
-    Convert a column of pipe-separated strings to a 2-D numpy array.
-    Shape: (n_samples, n_layers).
-    """
-    return np.vstack(
-        series.apply(lambda s: np.array([float(x) for x in str(s).split("|")]))
-    )
+def _coerce_bool(series: pd.Series) -> pd.Series:
+    if series.dtype == bool:
+        return series
+    lowered = series.astype(str).str.strip().str.lower()
+    mapped = lowered.map({"true": True, "false": False, "1": True, "0": False})
+    if mapped.notna().all():
+        return mapped.astype(bool)
+    return series.astype(bool)
 
 
-def _auto_sgr_clip(values: pd.Series) -> float:
-    """Choose a data-aware plotting cap for SGR."""
-    finite = values.replace([float("inf"), -float("inf")], np.nan).dropna().astype(float)
-    if finite.empty:
-        return 1.0
-    if len(finite) < 100:
-        return max(1.0, float(finite.max()))
-    return max(1.0, float(np.nanpercentile(finite, 99.0)))
+def _finite_sgr(series: pd.Series) -> pd.Series:
+    sgr = pd.to_numeric(series, errors="coerce")
+    return sgr.replace([float("inf"), -float("inf")], np.nan)
 
-
-# ---------------------------------------------------------------------------
-# Main analysis function
-# ---------------------------------------------------------------------------
 
 def analyse_sgr_distribution(
     df: pd.DataFrame,
     fig_dir: str = "figures",
     sgr_clip: Optional[float] = None,
     verbose: bool = True,
-) -> dict:
+) -> dict[str, pd.DataFrame]:
     """
-    Analyse the SGR distribution and generate publication-quality figures.
+    Build text-ready SGR summaries.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Output of :func:`~src.benchmark.run_benchmark.run_benchmark`
-        (one row per prompt pair).  May contain multiple models in the
-        ``model_name`` column.
-    fig_dir : str
-        Directory to write figures into.
-    sgr_clip : float
-        Cap SGR at this value for visualisation (avoids inf dominating axes).
-    verbose : bool
-        Print summary statistics.
-
-    Returns
-    -------
-    dict with keys ``failure_rate``, ``mean_sgr``, ``median_sgr``
+    Parameters are kept backward-compatible with the older plotting helper,
+    but ``fig_dir`` and ``sgr_clip`` are no longer used.
     """
-    os.makedirs(fig_dir, exist_ok=True)
+    del fig_dir, sgr_clip
 
-    # ── Clean up ─────────────────────────────────────────────────────────────
-    df = df.copy()
-    if sgr_clip is None:
-        sgr_clip = _auto_sgr_clip(df["sgr"])
-    df["sgr_clipped"] = pd.to_numeric(df["sgr"], errors="coerce")
-    df["sgr_clipped"] = df["sgr_clipped"].replace([float("inf"), -float("inf")], np.nan)
-    df["sgr_clipped"] = df["sgr_clipped"].fillna(sgr_clip).clip(upper=sgr_clip)
-    df["negation_failure"] = df["negation_failure"].astype(bool)
+    work = df.copy()
+    if "model_name" not in work.columns:
+        work["model_name"] = "model"
 
-    models = df["model_name"].unique().tolist() if "model_name" in df.columns else ["model"]
+    work["negation_failure"] = _coerce_bool(work["negation_failure"])
+    work["rank_shift"] = work["neg_target_rank"] - work["pos_target_rank"]
+    work["sgr_finite"] = _finite_sgr(work["sgr"])
+
+    benchmark_rows: list[dict[str, float | int | str]] = []
+    outcome_rows: list[dict[str, float | int | str]] = []
+    edge_rows: list[dict[str, float | int | str]] = []
+
+    for model_name, group in work.groupby("model_name"):
+        failures = group[group["negation_failure"]]
+        successes = group[~group["negation_failure"]]
+
+        success_sgr = successes["sgr_finite"].dropna()
+        failure_sgr = failures["sgr_finite"].dropna()
+        finite_sgr = group["sgr_finite"].dropna()
+
+        benchmark_rows.append(
+            {
+                "model_name": model_name,
+                "n_samples": int(len(group)),
+                "n_failures": int(group["negation_failure"].sum()),
+                "failure_rate": float(group["negation_failure"].mean()),
+                "median_rank_shift": float(group["rank_shift"].median()),
+                "mean_rank_shift": float(group["rank_shift"].mean()),
+                "median_sgr": float(finite_sgr.median()) if not finite_sgr.empty else np.nan,
+                "mean_sgr": float(finite_sgr.mean()) if not finite_sgr.empty else np.nan,
+                "success_median_sgr": float(success_sgr.median()) if not success_sgr.empty else np.nan,
+                "failure_median_sgr": float(failure_sgr.median()) if not failure_sgr.empty else np.nan,
+                "sgr_gt1_rate": float((finite_sgr > 1).mean()) if not finite_sgr.empty else np.nan,
+            }
+        )
+
+        for outcome_name, outcome_group in (("success", successes), ("failure", failures)):
+            outcome_sgr = outcome_group["sgr_finite"].dropna()
+            outcome_rows.append(
+                {
+                    "model_name": model_name,
+                    "outcome": outcome_name,
+                    "n_samples": int(len(outcome_group)),
+                    "median_rank_shift": float(outcome_group["rank_shift"].median()) if len(outcome_group) else np.nan,
+                    "mean_rank_shift": float(outcome_group["rank_shift"].mean()) if len(outcome_group) else np.nan,
+                    "median_sgr": float(outcome_sgr.median()) if not outcome_sgr.empty else np.nan,
+                    "mean_sgr": float(outcome_sgr.mean()) if not outcome_sgr.empty else np.nan,
+                }
+            )
+
+        success_with_high_sgr = int((successes["sgr_finite"] > 1).sum())
+        failure_with_low_sgr = int((failures["sgr_finite"] <= 1).sum())
+        edge_rows.append(
+            {
+                "model_name": model_name,
+                "success_with_sgr_gt1": success_with_high_sgr,
+                "failure_with_sgr_le1": failure_with_low_sgr,
+                "success_mismatch_rate": (
+                    success_with_high_sgr / len(successes) if len(successes) else np.nan
+                ),
+                "failure_mismatch_rate": (
+                    failure_with_low_sgr / len(failures) if len(failures) else np.nan
+                ),
+            }
+        )
+
+    benchmark_df = pd.DataFrame(benchmark_rows)
+    outcome_df = pd.DataFrame(outcome_rows)
+    edge_df = pd.DataFrame(edge_rows)
 
     if verbose:
-        print(f"\n{'='*60}")
-        print("SGR Distribution Analysis")
-        print(f"{'='*60}")
-        for m in models:
-            sub = df[df["model_name"] == m] if "model_name" in df.columns else df
-            n = len(sub)
-            nf = sub["negation_failure"].sum()
-            sgr_finite = sub["sgr"][sub["sgr"] != float("inf")]
-            print(f"\n  Model : {m}")
-            print(f"  Samples          : {n}")
-            print(f"  Negation failures: {nf}  ({nf/n:.1%})")
-            print(f"  Mean SGR         : {sgr_finite.mean():.3f}")
-            print(f"  Median SGR       : {sgr_finite.median():.3f}")
-            print(f"  SGR > 1 rate     : {(sgr_finite > 1).mean():.1%}")
+        print("\n" + "=" * 60)
+        print("SGR Summary")
+        print("=" * 60)
+        for _, row in benchmark_df.iterrows():
+            print(
+                f"{row['model_name']:<12} "
+                f"failure_rate={row['failure_rate']:.1%} "
+                f"median_rank_shift={row['median_rank_shift']:.1f} "
+                f"median_sgr={row['median_sgr']:.3f}"
+            )
 
-    # ── Figure A: SGR histogram ───────────────────────────────────────────────
-    fig, ax = plt.subplots(figsize=(10, 5))
-    bins = min(60, max(20, int(np.sqrt(max(len(df), 1)))))
-    palette = ["steelblue", "salmon", "seagreen", "goldenrod", "slateblue"]
-    for m, colour in zip(models, palette):
-        sub = df[df["model_name"] == m] if "model_name" in df.columns else df
-        success = sub[~sub["negation_failure"]]["sgr_clipped"]
-        failure = sub[sub["negation_failure"]]["sgr_clipped"]
-        ax.hist(success, bins=bins, alpha=0.6, color=colour,
-                label=f"{m} — success")
-        ax.hist(failure, bins=bins, alpha=0.6, color="tomato",
-                label=f"{m} — failure", hatch="//")
-
-    ax.axvline(x=1.0, color="black", linewidth=1.5, linestyle="--", label="SGR = 1")
-    ax.set_xlabel("Signal-to-Gate Ratio (SGR)")
-    ax.set_ylabel("Count")
-    ax.set_title("SGR Distribution — Success vs Negation Failure")
-    ax.legend(fontsize=8)
-    ax.set_xlim(*dynamic_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
-    plt.tight_layout()
-    path = os.path.join(fig_dir, "sgr_histogram.png")
-    plt.savefig(path, dpi=150)
-    plt.close()
-    if verbose:
-        print(f"\n  Saved {path}")
-
-    # ── Figure B: failure rate vs SGR threshold ───────────────────────────────
-    thresholds = np.linspace(0, sgr_clip, 200)
-    fig, ax = plt.subplots(figsize=(9, 5))
-    all_rates = []
-    for m, colour in zip(models, palette):
-        sub = df[df["model_name"] == m] if "model_name" in df.columns else df
-        rates = [
-            sub[sub["sgr_clipped"] <= t]["negation_failure"].mean()
-            for t in thresholds
-        ]
-        rates = np.asarray(rates, dtype=float)
-        all_rates.extend(rates[np.isfinite(rates)].tolist())
-        ax.plot(thresholds, rates, color=colour, linewidth=2, label=m)
-
-    ax.axvline(x=1.0, color="black", linestyle="--", linewidth=1, label="SGR = 1")
-    ax.set_xlabel("SGR threshold")
-    ax.set_ylabel("Negation failure rate (proportion)")
-    ax.set_title("Failure Rate vs SGR Threshold")
-    ax.legend()
-    ax.set_xlim(*dynamic_axis_limits(np.array([0.0, sgr_clip, 1.0]), floor=0.0))
-    ax.set_ylim(*dynamic_axis_limits(all_rates, floor=0.0, ceil=1.0))
-    plt.tight_layout()
-    path = os.path.join(fig_dir, "sgr_failure_rate.png")
-    plt.savefig(path, dpi=150)
-    plt.close()
-    if verbose:
-        print(f"  Saved {path}")
-
-    # ── Figure C: model comparison box plot (if >1 model) ─────────────────────
-    if len(models) > 1:
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        # Box plot of SGR
-        data_to_plot = [
-            df[df["model_name"] == m]["sgr_clipped"].values for m in models
-        ]
-        axes[0].boxplot(data_to_plot, labels=models, notch=True, patch_artist=True)
-        axes[0].axhline(y=1.0, color="red", linestyle="--")
-        axes[0].set_ylabel("SGR (clipped)")
-        axes[0].set_title("SGR Distribution by Model")
-        axes[0].set_ylim(*dynamic_axis_limits(np.concatenate(data_to_plot) if data_to_plot else np.array([0.0]), floor=0.0))
-
-        # Failure rate bar chart
-        failure_rates = [
-            df[df["model_name"] == m]["negation_failure"].mean() for m in models
-        ]
-        axes[1].bar(models, failure_rates, color=palette[:len(models)])
-        axes[1].set_ylabel("Negation failure rate")
-        axes[1].set_title("Failure Rate by Model")
-        axes[1].set_ylim(*dynamic_axis_limits(failure_rates, floor=0.0, ceil=1.0))
-
-        plt.tight_layout()
-        path = os.path.join(fig_dir, "sgr_model_comparison.png")
-        plt.savefig(path, dpi=150)
-        plt.close()
-        if verbose:
-            print(f"  Saved {path}")
-
-    # ── Figure D: mean per-layer DLA heatmap ─────────────────────────────────
-    # One row per model, columns = layers; two panels (FFN, Attn)
-    fig, axes = plt.subplots(len(models), 2,
-                              figsize=(14, 3 * len(models) + 1),
-                              squeeze=False)
-    for row_i, m in enumerate(models):
-        sub = df[df["model_name"] == m] if "model_name" in df.columns else df
-        if "ffn_dla_neg_str" not in sub.columns:
-            continue
-        ffn_mat  = _parse_layer_arr(sub["ffn_dla_neg_str"])
-        attn_mat = _parse_layer_arr(sub["attn_dla_neg_str"])
-        n_layers = ffn_mat.shape[1]
-
-        # Separate failure / success for each layer
-        fail_mask    = sub["negation_failure"].values.astype(bool)
-        mean_ffn_f   = ffn_mat[fail_mask].mean(axis=0) if fail_mask.any() else np.full(n_layers, np.nan)
-        mean_ffn_s   = ffn_mat[~fail_mask].mean(axis=0) if (~fail_mask).any() else np.full(n_layers, np.nan)
-        mean_attn_f  = attn_mat[fail_mask].mean(axis=0) if fail_mask.any() else np.full(n_layers, np.nan)
-        mean_attn_s  = attn_mat[~fail_mask].mean(axis=0) if (~fail_mask).any() else np.full(n_layers, np.nan)
-
-        stacked_ffn  = np.vstack([mean_ffn_s, mean_ffn_f])
-        stacked_attn = np.vstack([mean_attn_s, mean_attn_f])
-
-        cmap = "RdBu_r"
-        vmax = max(np.abs(stacked_ffn).max(), np.abs(stacked_attn).max(), 0.1)
-
-        sns.heatmap(stacked_ffn, ax=axes[row_i][0], center=0, vmin=-vmax, vmax=vmax,
-                    cmap=cmap, xticklabels=range(n_layers),
-                    yticklabels=["success", "failure"],
-                    cbar_kws={"shrink": 0.6})
-        axes[row_i][0].set_title(f"{m} — FFN DLA (negated)")
-        axes[row_i][0].set_xlabel("Layer")
-
-        sns.heatmap(stacked_attn, ax=axes[row_i][1], center=0, vmin=-vmax, vmax=vmax,
-                    cmap=cmap, xticklabels=range(n_layers),
-                    yticklabels=["success", "failure"],
-                    cbar_kws={"shrink": 0.6})
-        axes[row_i][1].set_title(f"{m} — Attn DLA (negated)")
-        axes[row_i][1].set_xlabel("Layer")
-
-    plt.suptitle("Mean Per-Layer DLA on Negated Prompts")
-    plt.tight_layout()
-    path = os.path.join(fig_dir, "per_layer_dla_mean.png")
-    plt.savefig(path, dpi=150)
-    plt.close()
-    if verbose:
-        print(f"  Saved {path}")
-
-    # ── Summary dict ─────────────────────────────────────────────────────────
-    sgr_f = df["sgr"][df["sgr"] != float("inf")]
     return {
-        "failure_rate": float(df["negation_failure"].mean()),
-        "mean_sgr":     float(sgr_f.mean()),
-        "median_sgr":   float(sgr_f.median()),
+        "benchmark_summary": benchmark_df,
+        "outcome_summary": outcome_df,
+        "edge_cases": edge_df,
     }

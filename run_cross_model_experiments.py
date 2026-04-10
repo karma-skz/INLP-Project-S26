@@ -1,107 +1,56 @@
 """
-run_cross_model_experiments.py
-==============================
-Rerun the project experiments across all target models and write a standalone
-markdown report with benchmark, amplification, and activation patching
-summaries.
+Run the main quantitative experiments across all supported models and write
+text-first summaries instead of plots.
 """
 
 from __future__ import annotations
 
 import argparse
+import gc
 import os
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 
-from src.analysis import amplification_sweep, compute_head_dla_batch, dataset_activation_patching_experiment, dataset_amplification_experiment, select_top_heads
-from src.analysis.per_head import per_head_dla, plot_head_dla_heatmap
+from src.analysis import compute_head_dla_batch, dataset_activation_patching_experiment, dataset_amplification_experiment, select_top_heads
 from src.benchmark import analyse_sgr_distribution, run_benchmark
 from src.dataset import load_counterfact
-from src.metrics import compare_models, negation_failure_rate, sgr_vs_failure_correlation, summary_stats
-from src.models import load_model
-from src.utils import benchmark_csv_path, dynamic_axis_limits
+from src.models import CANONICAL_MODEL_NAMES, MODEL_SHORTNAMES, load_model
+from src.utils import benchmark_csv_path
 
 
 torch.manual_seed(67)
 
-DEFAULT_MODELS = ["gpt2-small", "pythia-160m"]
-CANONICAL_POSITIVE = "The capital of France is"
-CANONICAL_NEGATED = "The capital of France is not"
-CANONICAL_TARGET = " Paris"
+
+def _progress(step: int, total: int, message: str) -> None:
+    print(f"[Step {step:02d}/{total:02d}] {message}")
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Cross-model rerun with markdown reporting")
-    p.add_argument("--models", nargs="+", default=DEFAULT_MODELS, help="Models to benchmark")
-    p.add_argument("--negator_suffix", default=" not", help="Negator suffix used to build prompt pairs")
-    p.add_argument("--max_samples", type=int, default=-1, help="CounterFact samples per model (-1 = all)")
-    p.add_argument("--analysis_samples", type=int, default=200, help="Samples used for per-head and amplification analysis")
-    p.add_argument("--patching_samples", type=int, default=20, help="Samples used for dataset activation patching")
-    p.add_argument("--top_k_heads", type=int, default=10, help="Top inhibition heads to amplify")
-    p.add_argument("--amp_scales", nargs="+", type=float, default=[0.5, 1.0, 2.0, 3.0, 4.0], help="Amplification scales")
-    p.add_argument("--results_dir", default="results/cross_model", help="Output directory for CSVs")
-    p.add_argument("--fig_dir", default="figures/cross_model", help="Output directory for figures")
-    p.add_argument("--report_md", default="reports/cross_model_experiments.md", help="Markdown report path")
-    return p.parse_args()
-
-def _plot_cross_model_amplification(amplification_results: dict, fig_dir: str):
-    os.makedirs(fig_dir, exist_ok=True)
-    path = os.path.join(fig_dir, "cross_model_amplification_failure_rate.png")
-    fig, ax = plt.subplots(figsize=(8.5, 5))
-    all_rates = []
-
-    for model_name, result in amplification_results.items():
-        all_rates.extend(result["failure_rates"])
-        ax.plot(result["scales"], result["failure_rates"], marker="o", linewidth=2, label=model_name)
-
-    ax.axvline(x=1.0, color="black", linestyle="--", linewidth=1, label="baseline")
-    ax.set_xlabel("Amplification scale")
-    ax.set_ylabel("Negation failure rate")
-    ax.set_title("Dataset-level amplification effect across models")
-    ax.set_ylim(*dynamic_axis_limits(all_rates, floor=0.0, ceil=1.0))
-    ax.legend()
-    plt.tight_layout()
-    plt.savefig(path, dpi=150)
-    plt.close()
-    return path
-
-
-def _plot_cross_model_patching(patching_results: dict, fig_dir: str):
-    os.makedirs(fig_dir, exist_ok=True)
-    path = os.path.join(fig_dir, "cross_model_activation_patching.png")
-    patch_types = ["resid", "mlp", "attn"]
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharex=True)
-
-    for ax, patch_type in zip(axes, patch_types):
-        all_values = []
-        for model_name, result in patching_results.items():
-            values = result["mean_deltas"][patch_type]
-            all_values.extend(values)
-            ax.plot(range(len(values)), values, marker="o", linewidth=2, label=model_name)
-        ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.6)
-        ax.set_title(f"{patch_type.upper()} patch")
-        ax.set_xlabel("Layer")
-        ax.set_ylabel("Mean Δ target logit")
-        ax.set_ylim(*dynamic_axis_limits(all_values))
-
-    axes[0].legend()
-    plt.tight_layout()
-    plt.savefig(path, dpi=150)
-    plt.close()
-    return path
+    parser = argparse.ArgumentParser(description="Cross-model rerun with text-only reporting")
+    parser.add_argument("--models", nargs="+", default=CANONICAL_MODEL_NAMES, help="Models to benchmark")
+    parser.add_argument("--negator_suffix", default=" not", help="Negator suffix used to build prompt pairs")
+    parser.add_argument("--max_samples", type=int, default=200, help="CounterFact samples per model (-1 = all)")
+    parser.add_argument("--analysis_samples", type=int, default=200, help="Samples used for head selection and amplification")
+    parser.add_argument("--patching_samples", type=int, default=20, help="Samples used for dataset activation patching")
+    parser.add_argument("--top_k_heads", type=int, default=10, help="Top inhibition heads to summarize")
+    parser.add_argument("--amp_scales", nargs="+", type=float, default=[0.5, 1.0, 2.0, 4.0], help="Amplification scales")
+    parser.add_argument("--results_dir", default="results/cross_model", help="Output directory for CSVs")
+    parser.add_argument("--report_md", default="reports/cross_model_experiments.md", help="Markdown report path")
+    return parser.parse_args()
 
 
 def _markdown_table(df: pd.DataFrame, float_cols: set[str] | None = None) -> list[str]:
     if df.empty:
         return ["(no data)", ""]
+
     float_cols = float_cols or set()
-    lines = ["| " + " | ".join(df.columns) + " |", "|" + "|".join(["---"] * len(df.columns)) + "|"]
+    lines = [
+        "| " + " | ".join(df.columns) + " |",
+        "|" + "|".join(["---"] * len(df.columns)) + "|",
+    ]
     for _, row in df.iterrows():
         values = []
         for col in df.columns:
@@ -115,223 +64,337 @@ def _markdown_table(df: pd.DataFrame, float_cols: set[str] | None = None) -> lis
     return lines
 
 
+def _top_heads_string(top_heads: list[tuple[int, int]], limit: int = 5) -> str:
+    preview = top_heads[:limit]
+    suffix = ", ..." if len(top_heads) > limit else ""
+    return ", ".join(f"({layer},{head})" for layer, head in preview) + suffix
+
+
+def _supportive_findings(
+    benchmark_df: pd.DataFrame,
+    mismatch_df: pd.DataFrame,
+    amplification_df: pd.DataFrame,
+    patching_df: pd.DataFrame,
+) -> list[str]:
+    findings: list[str] = []
+
+    for _, row in benchmark_df.iterrows():
+        if pd.notna(row["failure_median_sgr"]) and pd.notna(row["success_median_sgr"]) and row["failure_median_sgr"] > row["success_median_sgr"]:
+            findings.append(
+                f"`{row['model_name']}` shows higher median SGR in failures than successes "
+                f"({row['failure_median_sgr']:.2f} vs {row['success_median_sgr']:.2f}), which supports the retrieval-over-inhibition story."
+            )
+
+    for _, row in amplification_df.iterrows():
+        if pd.notna(row["absolute_improvement"]) and row["absolute_improvement"] > 0:
+            findings.append(
+                f"`{row['model_name']}` improves under head amplification: failure rate drops from "
+                f"{row['baseline_rate']:.1%} to {row['best_rate']:.1%} at scale {row['best_scale']:.2f}."
+            )
+
+    for _, row in patching_df.iterrows():
+        if pd.notna(row["best_delta"]) and row["best_delta"] > 0:
+            findings.append(
+                f"`{row['model_name']}` has a positive mean patching effect, strongest for "
+                f"{row['best_patch_type']} at layer {int(row['best_layer'])} (Δ logit {row['best_delta']:+.3f})."
+            )
+
+    for _, row in mismatch_df.iterrows():
+        if pd.notna(row["failure_mismatch_rate"]) and row["failure_mismatch_rate"] < 0.1:
+            findings.append(
+                f"`{row['model_name']}` rarely produces failure cases with SGR <= 1 "
+                f"({row['failure_mismatch_rate']:.1%}), so the metric usually points in the right direction for failures."
+            )
+
+    return findings
+
+
+def _contradictory_findings(
+    benchmark_df: pd.DataFrame,
+    mismatch_df: pd.DataFrame,
+    amplification_df: pd.DataFrame,
+) -> list[str]:
+    findings: list[str] = []
+
+    for _, row in mismatch_df.iterrows():
+        if pd.notna(row["success_mismatch_rate"]) and row["success_mismatch_rate"] > 0:
+            findings.append(
+                f"`{row['model_name']}` still has many successful suppressions with SGR > 1 "
+                f"({row['success_mismatch_rate']:.1%} of successes), so SGR is a useful trend metric, not a clean decision rule."
+            )
+        if pd.notna(row["failure_mismatch_rate"]) and row["failure_mismatch_rate"] > 0:
+            findings.append(
+                f"`{row['model_name']}` also includes some failure cases with SGR <= 1 "
+                f"({row['failure_mismatch_rate']:.1%} of failures), which weakens any strict threshold claim."
+            )
+
+    for _, row in amplification_df.iterrows():
+        if pd.notna(row["best_rate"]) and row["best_rate"] > 0:
+            findings.append(
+                f"`{row['model_name']}` is not fully rescued by amplification; even the best scale leaves a "
+                f"{row['best_rate']:.1%} failure rate."
+            )
+
+    failure_order = benchmark_df.sort_values("failure_rate", ascending=False)
+    if len(failure_order) >= 2:
+        worst = failure_order.iloc[0]
+        best = failure_order.iloc[-1]
+        findings.append(
+            f"Model differences remain large: `{worst['model_name']}` fails more often than `{best['model_name']}` "
+            f"({worst['failure_rate']:.1%} vs {best['failure_rate']:.1%}), so the story is not equally strong across architectures."
+        )
+
+    return findings
+
+
 def main():
     args = parse_args()
     os.makedirs(args.results_dir, exist_ok=True)
-    os.makedirs(args.fig_dir, exist_ok=True)
 
+    model_names = [MODEL_SHORTNAMES.get(model_name, model_name) for model_name in args.models]
     max_samples = None if args.max_samples < 0 else args.max_samples
 
-    all_dfs = []
-    per_model = {}
+    per_model_steps = 6
+    finalization_steps = 10
+    total_steps = len(model_names) * per_model_steps + finalization_steps
+    current_step = 0
 
-    for model_name in args.models:
-        print(f"\n{'#' * 72}")
+    all_dfs: list[pd.DataFrame] = []
+    head_rows: list[dict[str, object]] = []
+    amp_rows: list[dict[str, object]] = []
+    patch_rows: list[dict[str, object]] = []
+
+    current_step += 1
+    _progress(
+        current_step,
+        total_steps,
+        f"Initialized run for {len(model_names)} model(s): {', '.join(model_names)}",
+    )
+
+    for model_name in model_names:
+        current_step += 1
+        _progress(current_step, total_steps, f"Loading model `{model_name}`")
+        print("\n" + "#" * 72)
         print(f"# Running model: {model_name}")
-        print(f"{'#' * 72}\n")
+        print("#" * 72 + "\n")
 
         model = load_model(model_name)
+
+        current_step += 1
+        _progress(current_step, total_steps, f"Building CounterFact pairs for `{model_name}`")
         pairs = load_counterfact(max_samples=max_samples, model=model, negator_suffix=args.negator_suffix)
+
+        current_step += 1
+        _progress(current_step, total_steps, f"Running benchmark + saving per-model CSV for `{model_name}`")
         csv_path = str(benchmark_csv_path(args.results_dir, model_name, args.negator_suffix))
         df = run_benchmark(model, pairs, model_name=model_name, output_csv=csv_path)
         df["negator"] = args.negator_suffix
         df.to_csv(csv_path, index=False)
         all_dfs.append(df)
 
-        analysis_pairs = pairs[:min(len(pairs), args.analysis_samples)]
-        patch_pairs = analysis_pairs[:min(len(analysis_pairs), args.patching_samples)]
+        analysis_pairs = pairs[: min(len(pairs), args.analysis_samples)]
+        patch_pairs = analysis_pairs[: min(len(analysis_pairs), args.patching_samples)]
 
+        current_step += 1
+        _progress(current_step, total_steps, f"Selecting top inhibition heads for `{model_name}`")
         mean_delta = compute_head_dla_batch(model, analysis_pairs, top_k=args.top_k_heads)
         top_heads = select_top_heads(mean_delta, top_k=args.top_k_heads)
 
-        head_pos, head_neg = per_head_dla(model, CANONICAL_POSITIVE, CANONICAL_NEGATED, CANONICAL_TARGET)
-        headmap_filename = f"{model_name}_head_dla_heatmap.png"
-        plot_head_dla_heatmap(
-            head_pos,
-            head_neg,
-            target_token=CANONICAL_TARGET,
-            fig_dir=args.fig_dir,
-            filename=headmap_filename,
-        )
-
-        amp_single = amplification_sweep(
-            model,
-            positive_prompt=CANONICAL_POSITIVE,
-            negated_prompt=CANONICAL_NEGATED,
-            target_token=CANONICAL_TARGET,
-            heads=top_heads,
-            scales=args.amp_scales,
-            fig_dir=args.fig_dir,
-            filename=f"{model_name}_amplification_sweep.png",
-        )
-        amp_dataset = dataset_amplification_experiment(
+        current_step += 1
+        _progress(current_step, total_steps, f"Running amplification sweep for `{model_name}`")
+        amp_summary = dataset_amplification_experiment(
             model,
             pairs=analysis_pairs,
             heads=top_heads,
             scales=args.amp_scales,
-            fig_dir=args.fig_dir,
-            filename=f"{model_name}_amplification_failure_rate.png",
+            verbose=True,
         )
 
+        current_step += 1
+        _progress(current_step, total_steps, f"Running activation patching summary for `{model_name}`")
         patch_summary = dataset_activation_patching_experiment(
             model,
             patch_pairs,
             max_samples=None,
-            fig_dir=args.fig_dir,
-            filename=f"{model_name}_activation_patching.png",
-            title=f"{model_name} activation patching ({len(patch_pairs)} samples)",
+            verbose=True,
         )
 
-        per_model[model_name] = {
-            "csv_path": csv_path,
-            "n_pairs": len(pairs),
-            "analysis_pairs": len(analysis_pairs),
-            "patch_pairs": len(patch_pairs),
-            "top_heads": top_heads,
-            "headmap_path": os.path.join(args.fig_dir, headmap_filename),
-            "amp_single": amp_single,
-            "amp_dataset": amp_dataset,
-            "patching": patch_summary,
-        }
+        head_rows.append(
+            {
+                "model_name": model_name,
+                "analysis_pairs": len(analysis_pairs),
+                "top_heads": _top_heads_string(top_heads),
+            }
+        )
+        amp_rows.append(
+            {
+                "model_name": model_name,
+                "analysis_pairs": amp_summary["n_pairs"],
+                "baseline_rate": amp_summary["baseline_rate"],
+                "best_rate": amp_summary["best_rate"],
+                "best_scale": amp_summary["best_scale"],
+                "absolute_improvement": amp_summary["absolute_improvement"],
+            }
+        )
+        patch_rows.append(
+            {
+                "model_name": model_name,
+                "patch_samples": patch_summary["n_samples"],
+                "best_patch_type": patch_summary["best_overall"]["patch_type"] if patch_summary["best_overall"] else "",
+                "best_layer": patch_summary["best_overall"]["layer"] if patch_summary["best_overall"] else np.nan,
+                "best_delta": patch_summary["best_overall"]["delta"] if patch_summary["best_overall"] else np.nan,
+                "best_resid": f"L{patch_summary['best_layers']['resid']['layer']} ({patch_summary['best_layers']['resid']['delta']:+.3f})",
+                "best_mlp": f"L{patch_summary['best_layers']['mlp']['layer']} ({patch_summary['best_layers']['mlp']['delta']:+.3f})",
+                "best_attn": f"L{patch_summary['best_layers']['attn']['layer']} ({patch_summary['best_layers']['attn']['delta']:+.3f})",
+            }
+        )
 
         del model
+        gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    current_step += 1
+    _progress(current_step, total_steps, "Combining per-model benchmarks")
     combined_df = pd.concat(all_dfs, ignore_index=True)
     combined_csv = os.path.join(args.results_dir, "all_models_benchmark.csv")
     combined_df.to_csv(combined_csv, index=False)
 
-    analyse_sgr_distribution(combined_df, fig_dir=args.fig_dir)
-    summary = summary_stats(combined_df, verbose=False)
-    corr_df = sgr_vs_failure_correlation(combined_df)
-    fail_df = negation_failure_rate(combined_df)
-    comparison = compare_models(combined_df, args.models[0], args.models[1]) if len(args.models) == 2 else None
+    current_step += 1
+    _progress(current_step, total_steps, "Computing SGR summary tables")
+    sgr_summary = analyse_sgr_distribution(combined_df, verbose=False)
+    benchmark_df = sgr_summary["benchmark_summary"].sort_values("failure_rate", ascending=False).reset_index(drop=True)
+    outcome_df = sgr_summary["outcome_summary"].sort_values(["model_name", "outcome"]).reset_index(drop=True)
+    mismatch_df = sgr_summary["edge_cases"].sort_values("model_name").reset_index(drop=True)
+    head_df = pd.DataFrame(head_rows).sort_values("model_name").reset_index(drop=True)
+    amplification_df = pd.DataFrame(amp_rows).sort_values("model_name").reset_index(drop=True)
+    patching_df = pd.DataFrame(patch_rows).sort_values("model_name").reset_index(drop=True)
 
-    amplification_cross_path = _plot_cross_model_amplification(
-        {model_name: data["amp_dataset"] for model_name, data in per_model.items()},
-        args.fig_dir,
-    )
-    patching_cross_path = _plot_cross_model_patching(
-        {model_name: data["patching"] for model_name, data in per_model.items()},
-        args.fig_dir,
-    )
+    current_step += 1
+    _progress(current_step, total_steps, "Saving summary CSVs")
+    benchmark_df.to_csv(os.path.join(args.results_dir, "benchmark_summary.csv"), index=False)
+    outcome_df.to_csv(os.path.join(args.results_dir, "benchmark_outcome_summary.csv"), index=False)
+    mismatch_df.to_csv(os.path.join(args.results_dir, "benchmark_edge_cases.csv"), index=False)
+    head_df.to_csv(os.path.join(args.results_dir, "head_summary.csv"), index=False)
+    amplification_df.to_csv(os.path.join(args.results_dir, "amplification_summary.csv"), index=False)
+    patching_df.to_csv(os.path.join(args.results_dir, "patching_summary.csv"), index=False)
 
-    benchmark_rows = []
-    for model_name in args.models:
-        stats = summary[model_name]
-        benchmark_rows.append({
-            "model_name": model_name,
-            "n_samples": stats["n_samples"],
-            "failure_rate": stats["failure_rate"],
-            "sgr_mean": stats["sgr_mean"],
-            "sgr_median": stats["sgr_median"],
-            "sgr_gt1_rate": stats["sgr_gt1_rate"],
-            "crossover_present": stats["crossover_present"],
-        })
-    benchmark_df = pd.DataFrame(benchmark_rows)
+    current_step += 1
+    _progress(current_step, total_steps, "Extracting supporting findings")
+    support_lines = _supportive_findings(benchmark_df, mismatch_df, amplification_df, patching_df)
 
-    head_rows = []
-    amp_rows = []
-    patch_rows = []
-    for model_name, data in per_model.items():
-        head_rows.append({
-            "model_name": model_name,
-            "top_heads": ", ".join(f"({layer},{head})" for layer, head in data["top_heads"][:5]),
-            "head_heatmap": data["headmap_path"],
-        })
-        amp_dataset = data["amp_dataset"]
-        best_idx = int(np.nanargmin(amp_dataset["failure_rates"]))
-        amp_rows.append({
-            "model_name": model_name,
-            "baseline_rate_at_1x": amp_dataset["failure_rates"][amp_dataset["scales"].index(1.0)] if 1.0 in amp_dataset["scales"] else np.nan,
-            "best_rate": amp_dataset["failure_rates"][best_idx],
-            "best_scale": amp_dataset["scales"][best_idx],
-            "failure_curve_figure": amp_dataset["figure_path"],
-            "single_prompt_figure": data["amp_single"]["figure_path"],
-        })
-        patch_rows.append({
-            "model_name": model_name,
-            "patch_samples": data["patching"]["n_samples"],
-            "best_resid": f"L{data['patching']['best_layers']['resid']['layer']} ({data['patching']['best_layers']['resid']['delta']:+.3f})",
-            "best_mlp": f"L{data['patching']['best_layers']['mlp']['layer']} ({data['patching']['best_layers']['mlp']['delta']:+.3f})",
-            "best_attn": f"L{data['patching']['best_layers']['attn']['layer']} ({data['patching']['best_layers']['attn']['delta']:+.3f})",
-            "patch_figure": data["patching"]["figure_path"],
-        })
+    current_step += 1
+    _progress(current_step, total_steps, "Extracting contradictory findings")
+    contradiction_lines = _contradictory_findings(benchmark_df, mismatch_df, amplification_df)
 
+    current_step += 1
+    _progress(current_step, total_steps, "Assembling markdown report sections")
     report_lines = [
         "# Cross-Model Experiment Report",
         "",
-        "- Models rerun: " + ", ".join(f"`{m}`" for m in args.models),
+        "- Models rerun: " + ", ".join(f"`{model_name}`" for model_name in model_names),
         f"- Negator suffix: `{args.negator_suffix}`",
         f"- Benchmark samples per model: `{args.max_samples if args.max_samples >= 0 else 'all available'}`",
-        f"- Per-head/amplification sample cap: `{args.analysis_samples}`",
-        f"- Activation patching sample cap: `{args.patching_samples}`",
+        f"- Per-model benchmark CSVs: `{args.results_dir}`",
         f"- Combined benchmark CSV: `{combined_csv}`",
         "",
         "## Benchmark Summary",
         "",
     ]
-    report_lines.extend(_markdown_table(benchmark_df, float_cols={"failure_rate", "sgr_mean", "sgr_median", "sgr_gt1_rate", "crossover_present"}))
-    report_lines.extend([
-        "## Correlation Summary",
-        "",
-    ])
-    report_lines.extend(_markdown_table(
-        corr_df[["model_name", "n_samples", "spearman_r", "spearman_p", "pointbiserial_r", "pointbiserial_p"]],
-        float_cols={"spearman_r", "spearman_p", "pointbiserial_r", "pointbiserial_p"},
-    ))
-    report_lines.extend([
-        "## Failure Rate Confidence Intervals",
-        "",
-    ])
-    report_lines.extend(_markdown_table(fail_df, float_cols={"failure_rate", "ci_lower", "ci_upper"}))
-    report_lines.extend([
-        "## Per-Head and Amplification Summary",
-        "",
-    ])
-    report_lines.extend(_markdown_table(pd.DataFrame(head_rows)))
-    report_lines.extend(_markdown_table(pd.DataFrame(amp_rows), float_cols={"baseline_rate_at_1x", "best_rate", "best_scale"}))
-    report_lines.extend([
-        f"- Cross-model amplification figure: `{amplification_cross_path}`",
-        "",
-        "## Activation Patching Summary",
-        "",
-    ])
-    report_lines.extend(_markdown_table(pd.DataFrame(patch_rows)))
-    report_lines.extend([
-        f"- Cross-model activation patching figure: `{patching_cross_path}`",
-        "",
-        "## Shared SGR Figures",
-        "",
-        f"- Histogram: `{os.path.join(args.fig_dir, 'sgr_histogram.png')}`",
-        f"- Failure-rate curve: `{os.path.join(args.fig_dir, 'sgr_failure_rate.png')}`",
-        f"- Per-layer DLA heatmap: `{os.path.join(args.fig_dir, 'per_layer_dla_mean.png')}`",
-        f"- Model comparison: `{os.path.join(args.fig_dir, 'sgr_model_comparison.png')}`" if len(args.models) > 1 else "",
-        "",
-    ])
-
-    if comparison is not None:
-        report_lines.extend([
-            "## Two-Model Statistical Comparison",
+    report_lines.extend(
+        _markdown_table(
+            benchmark_df[
+                [
+                    "model_name",
+                    "n_samples",
+                    "n_failures",
+                    "failure_rate",
+                    "median_rank_shift",
+                    "median_sgr",
+                    "success_median_sgr",
+                    "failure_median_sgr",
+                ]
+            ],
+            float_cols={"failure_rate", "median_rank_shift", "median_sgr", "success_median_sgr", "failure_median_sgr"},
+        )
+    )
+    report_lines.extend(
+        [
+            "Interpretation:",
             "",
-            f"- Failure rates: `{args.models[0]}` = {comparison[f'failure_rate_{args.models[0]}']:.4f}, `{args.models[1]}` = {comparison[f'failure_rate_{args.models[1]}']:.4f}",
-            f"- Two-proportion z-test: `z = {comparison['two_proportion_z']:.4f}`, `p = {comparison['two_proportion_p']:.4g}`",
-            f"- Mann-Whitney on SGR: `U = {comparison['mannwhitney_sgr_u']:.0f}`, `p = {comparison['mannwhitney_sgr_p']:.4g}`",
+            "- `median_rank_shift` is `neg_target_rank - pos_target_rank`; positive values mean negation usually pushes the factual token downward.",
+            "- `success_median_sgr` and `failure_median_sgr` show whether the SGR ordering matches the behavioural split.",
             "",
-        ])
-
-    report_lines.extend([
-        "## Notes",
-        "",
-        f"- SGR plots now use a data-aware range instead of a fixed clip; the current combined run used an automatic cap derived from the plotted data.",
-        f"- Amplification and activation-patching figures also use dynamic y-axis ranges based on the actual plotted values.",
-        "",
-    ])
+            "## SGR Edge Cases",
+            "",
+        ]
+    )
+    report_lines.extend(
+        _markdown_table(
+            mismatch_df,
+            float_cols={"success_mismatch_rate", "failure_mismatch_rate"},
+        )
+    )
+    report_lines.extend(
+        [
+            "Interpretation:",
+            "",
+            "- `success_with_sgr_gt1` counts cases where the model suppresses the target even though SGR is above 1.",
+            "- `failure_with_sgr_le1` counts cases that go against the simple SGR-threshold story.",
+            "",
+            "## Head Selection and Interventions",
+            "",
+        ]
+    )
+    report_lines.extend(_markdown_table(head_df))
+    report_lines.extend(
+        _markdown_table(
+            amplification_df,
+            float_cols={"baseline_rate", "best_rate", "best_scale", "absolute_improvement"},
+        )
+    )
+    report_lines.extend(
+        _markdown_table(
+            patching_df,
+            float_cols={"best_layer", "best_delta"},
+        )
+    )
+    report_lines.extend(
+        [
+            "## What Helps Our Story",
+            "",
+        ]
+    )
+    report_lines.extend([f"- {line}" for line in support_lines] or ["- No strong supporting pattern emerged in this rerun."])
+    report_lines.extend(
+        [
+            "",
+            "## What Weakens Our Story",
+            "",
+        ]
+    )
+    report_lines.extend([f"- {line}" for line in contradiction_lines] or ["- No obvious contradictory pattern emerged in this rerun."])
+    report_lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- No graphs are generated by this report. The evidence is intentionally reduced to tables and concise observations.",
+            "- The strongest intervention evidence comes from dataset-level head amplification and activation patching, both run on capped subsets for tractability.",
+            "- Pair filtering still depends on single-token targets for each tokenizer, so sample counts differ by model.",
+            "",
+        ]
+    )
 
     report_path = Path(args.report_md)
     report_path.parent.mkdir(parents=True, exist_ok=True)
+
+    current_step += 1
+    _progress(current_step, total_steps, "Writing markdown report to disk")
     report_path.write_text("\n".join(report_lines), encoding="utf-8")
+
+    current_step += 1
+    _progress(current_step, total_steps, "Cross-model experiment run complete")
     print(f"\nSaved cross-model markdown report -> {report_path}")
 
 

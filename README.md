@@ -32,6 +32,7 @@ Supported model names:
 ```text
 INLP-Project-S26/
 ├── run_pipeline.py
+├── run_emotion_negation_experiment.py
 ├── run_cross_model_experiments.py
 ├── run_qualitative_analysis.py
 ├── run_multi_model_qualitative_report.py
@@ -105,6 +106,12 @@ Run both default models on the full dataset:
 python run_pipeline.py --models gpt2-small pythia-160m --max_samples -1
 ```
 
+Run the new emotion-negation direction experiment:
+
+```bash
+python run_emotion_negation_experiment.py --models gpt2-small
+```
+
 Run a faster version that skips the slower head-level and amplification stages:
 
 ```bash
@@ -166,6 +173,51 @@ Useful outputs from this run include:
 - `figures/cross_model/cross_model_amplification_failure_rate.png`
 - `figures/cross_model/cross_model_activation_patching.png`
 - `reports/cross_model_experiments.md`
+
+## Emotion Negation Direction Experiment
+
+This experiment extends the repository with a controlled emotional-representation benchmark inspired by Anthropic's linear-direction results.
+
+It builds balanced prompt pairs such as:
+
+- `I feel happy`
+- `I do not feel happy`
+
+across multiple emotion categories (`joy`, `sadness`, `anger`, `fear`) plus neutral controls.
+
+Run it with:
+
+```bash
+python run_emotion_negation_experiment.py --models gpt2-small
+```
+
+Useful options:
+
+- `--models` selects one or more models
+- `--representation final_token|mean_pool` switches between last-token and pooled residual representations
+- `--layers` restricts analysis to specific layers
+- `--alpha_values` customizes the direction-injection sweep
+
+This writes per-model outputs to:
+
+- `results/emotion_negation/<model>/emotion_prompt_metadata.csv`
+- `results/emotion_negation/<model>/emotion_direction_summary.csv`
+- `results/emotion_negation/<model>/emotion_opposite_summary.csv`
+- `results/emotion_negation/<model>/emotion_negation_sensitivity.csv`
+- `results/emotion_negation/<model>/emotion_linearity_summary.csv`
+- `results/emotion_negation/<model>/emotion_direction_vectors.npz`
+
+and figures to:
+
+- `figures/emotion_negation/<model>/emotion_direction_overview.png`
+- `figures/emotion_negation/<model>/emotion_direction_symmetry.png`
+- `figures/emotion_negation/<model>/emotion_negation_sensitivity.png`
+- `figures/emotion_negation/<model>/emotion_direction_pca.png`
+- `figures/emotion_negation/<model>/emotion_direction_linearity.png`
+
+The markdown report is written to:
+
+- `reports/emotion_negation_<model>.md`
 
 ## Qualitative Reports
 

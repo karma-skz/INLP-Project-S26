@@ -1,8 +1,5 @@
 """
-run_multi_model_qualitative_report.py
-=====================================
-Generate a standalone markdown report for qualitative case studies across
-multiple models, comparing behaviour before and after activation patching.
+Generate a shared-case qualitative report across all selected models.
 """
 
 from __future__ import annotations
@@ -15,29 +12,22 @@ import pandas as pd
 import torch
 
 from src.analysis import activation_patching_scan, patched_prompt_metrics
-from src.models import load_model
+from src.models import CANONICAL_MODEL_NAMES, load_model
 from src.utils import benchmark_csv_path, load_benchmark_dataframe
 
 
 torch.manual_seed(67)
 
 
-DEFAULT_MODELS = ["gpt2-small", "pythia-160m"]
-
-
 def parse_args():
-    p = argparse.ArgumentParser(description="Multi-model qualitative report with activation patching")
-    p.add_argument("--models", nargs="+", default=DEFAULT_MODELS, help="Models to include in the report")
-    p.add_argument("--results_dir", default="results/cross_model", help="Directory containing per-model benchmark CSVs")
-    p.add_argument("--negator_suffix", default=" not", help="Negator suffix used in benchmark CSVs")
-    p.add_argument("--case_ids", nargs="+", type=int, help="Optional fixed case_ids to analyse")
-    p.add_argument("--output_md", default="reports/qualitative_multimodel_report.md", help="Markdown report path")
-    p.add_argument("--top_k_predictions", type=int, default=5, help="How many predictions to show per prompt")
-    return p.parse_args()
-
-
-def _benchmark_path(results_dir: str, model_name: str, negator_suffix: str) -> Path:
-    return benchmark_csv_path(results_dir, model_name, negator_suffix)
+    parser = argparse.ArgumentParser(description="Multi-model qualitative report")
+    parser.add_argument("--models", nargs="+", default=CANONICAL_MODEL_NAMES, help="Models to include in the report")
+    parser.add_argument("--results_dir", default="results/cross_model", help="Directory containing per-model benchmark CSVs")
+    parser.add_argument("--negator_suffix", default=" not", help="Negator suffix used in the benchmark CSVs")
+    parser.add_argument("--case_ids", nargs="+", type=int, help="Optional fixed case_ids to analyse")
+    parser.add_argument("--top_k_predictions", type=int, default=5, help="How many predictions to show per prompt")
+    parser.add_argument("--output_md", default="reports/qualitative_multimodel_report.md", help="Markdown report path")
+    return parser.parse_args()
 
 
 def _fmt_token(token: str) -> str:
@@ -45,38 +35,11 @@ def _fmt_token(token: str) -> str:
     return token if token else "<empty>"
 
 
-def _prediction_rows(rows):
+def _prediction_rows(rows: list[dict[str, float]]) -> str:
     return " | ".join(f"`{_fmt_token(row['token'])}` ({row['prob']:.4f})" for row in rows)
 
 
-def _select_case_ids(primary_df: pd.DataFrame) -> list[int]:
-    work = primary_df.copy()
-    work["rank_improvement"] = work["pos_target_rank"] - work["neg_target_rank"]
-    work["suppression_gain"] = work["neg_target_rank"] - work["pos_target_rank"]
-    work["distance_to_one"] = np.abs(work["sgr"].replace([float("inf"), -float("inf")], np.nan) - 1.0)
-
-    seen = set()
-    selected = []
-
-    def add_rows(df, n):
-        taken = 0
-        for _, row in df.iterrows():
-            case_id = int(row["case_id"])
-            if case_id in seen:
-                continue
-            seen.add(case_id)
-            selected.append(case_id)
-            taken += 1
-            if taken >= n:
-                break
-
-    add_rows(work[work["negation_failure"]].sort_values(["rank_improvement", "sgr"], ascending=[False, False]), 2)
-    add_rows(work[~work["negation_failure"]].sort_values(["suppression_gain", "distance_to_one"], ascending=[False, True]), 1)
-    add_rows(work[(~work["negation_failure"]) & work["distance_to_one"].notna()].sort_values("distance_to_one", ascending=True), 1)
-    return selected
-
-
-def _top_predictions(model, prompt: str, target_token: str, top_k: int):
+def _top_predictions(model, prompt: str, target_token: str, top_k: int) -> dict:
     target_id = model.to_single_token(target_token)
     logits = model(model.to_tokens(prompt))
     last_logits = logits[0, -1, :]
@@ -93,74 +56,43 @@ def _top_predictions(model, prompt: str, target_token: str, top_k: int):
     }
 
 
-def _load_results(models: list[str], results_dir: str, negator_suffix: str):
+def _load_results(models: list[str], results_dir: str, negator_suffix: str) -> dict[str, pd.DataFrame]:
     data = {}
     for model_name in models:
-        path = _benchmark_path(results_dir, model_name, negator_suffix)
+        path = benchmark_csv_path(results_dir, model_name, negator_suffix)
         if not path.exists():
             raise FileNotFoundError(f"Missing benchmark CSV for {model_name}: {path}")
         data[model_name] = load_benchmark_dataframe(path)
     return data
 
 
-def build_report(selected_case_ids: list[int], rows_by_model: dict[str, pd.DataFrame], analyses: dict, output_path: Path):
-    lines = [
-        "# Multi-Model Qualitative Report",
-        "",
-        "- Goal: compare representative negation cases before and after activation patching across all tested models.",
-        f"- Models: {', '.join(f'`{m}`' for m in rows_by_model)}",
-        f"- Cases: {', '.join(str(cid) for cid in selected_case_ids)}",
-        "",
+def _select_case_ids(primary_df: pd.DataFrame) -> list[int]:
+    work = primary_df.copy()
+    work["rank_improvement"] = work["pos_target_rank"] - work["neg_target_rank"]
+    work["rank_shift"] = work["neg_target_rank"] - work["pos_target_rank"]
+    work["distance_to_one"] = np.abs(work["sgr"].replace([np.inf, -np.inf], np.nan) - 1.0)
+
+    selected: list[int] = []
+    seen: set[int] = set()
+    buckets = [
+        work[work["negation_failure"]].sort_values(["rank_improvement", "sgr"], ascending=[False, False]),
+        work[~work["negation_failure"]].sort_values(["rank_shift", "sgr"], ascending=[False, True]),
+        work[
+            ((~work["negation_failure"]) & (work["sgr"] > 1))
+            | (work["negation_failure"] & (work["sgr"] <= 1))
+        ].sort_values("distance_to_one", ascending=True),
     ]
 
-    for case_id in selected_case_ids:
-        ref_row = None
-        for model_name in rows_by_model:
-            candidate = rows_by_model[model_name]
-            candidate = candidate[candidate["case_id"] == case_id]
-            if not candidate.empty:
-                ref_row = candidate.iloc[0]
-                break
-        if ref_row is None:
-            continue
+    for bucket in buckets:
+        for _, row in bucket.iterrows():
+            case_id = int(row["case_id"])
+            if case_id in seen:
+                continue
+            selected.append(case_id)
+            seen.add(case_id)
+            break
 
-        lines.extend([
-            f"## Case {case_id}: {ref_row['subject']}",
-            "",
-            f"- Positive prompt: `{ref_row['positive_prompt']}`",
-            f"- Negated prompt: `{ref_row['negated_prompt']}`",
-            f"- Target token: `{ref_row['target_token']}`",
-            "",
-        ])
-
-        for model_name in rows_by_model:
-            case = analyses[model_name][case_id]
-            row = case["row"]
-            scan = case["patch_scan"]
-            best = scan["best_patch"]
-            lines.extend([
-                f"### {model_name}",
-                "",
-                f"- Benchmark label: `{'failure' if bool(row['negation_failure']) else 'success'}`",
-                f"- SGR: `{float(row['sgr']):.3f}`",
-                f"- Best patch: `{best['patch_type']}` at layer `{best['layer']}` with Δ logit `{best['delta']:+.3f}`",
-                "",
-                "| Run | Target logit | Target prob | Target rank |",
-                "|---|---:|---:|---:|",
-                f"| Positive | {case['positive']['target_logit']:.3f} | {case['positive']['target_prob']:.4f} | {case['positive']['target_rank']} |",
-                f"| Negated (unpatched) | {scan['baseline']['target_logit']:.3f} | {scan['baseline']['target_prob']:.4f} | {scan['baseline']['target_rank']} |",
-                f"| Negated (best patch) | {case['patched']['target_logit']:.3f} | {case['patched']['target_prob']:.4f} | {case['patched']['target_rank']} |",
-                "",
-                f"- Negated top predictions: {_prediction_rows(scan['baseline']['top_predictions'])}",
-                f"- Patched top predictions: {_prediction_rows(case['patched']['top_predictions'])}",
-                f"- Strongest residual patch layer: `L{scan['patches']['resid']['best_layer']}` (Δ `{scan['patches']['resid']['best_delta']:+.3f}`)",
-                f"- Strongest MLP patch layer: `L{scan['patches']['mlp']['best_layer']}` (Δ `{scan['patches']['mlp']['best_delta']:+.3f}`)",
-                f"- Strongest attention patch layer: `L{scan['patches']['attn']['best_layer']}` (Δ `{scan['patches']['attn']['best_delta']:+.3f}`)",
-                "",
-            ])
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines), encoding="utf-8")
+    return selected
 
 
 def main():
@@ -170,9 +102,6 @@ def main():
     common_case_ids = set.intersection(*(set(df["case_id"].tolist()) for df in data_by_model.values()))
     if args.case_ids:
         selected_case_ids = [case_id for case_id in args.case_ids if case_id in common_case_ids]
-        missing = sorted(set(args.case_ids) - set(selected_case_ids))
-        if missing:
-            print(f"Skipping case_ids missing from at least one model: {missing}")
     else:
         primary_df = data_by_model[args.models[0]]
         primary_df = primary_df[primary_df["case_id"].isin(common_case_ids)].copy()
@@ -181,22 +110,26 @@ def main():
     if not selected_case_ids:
         raise ValueError("No shared case_ids available for qualitative analysis.")
 
-    print(f"Selected shared case_ids: {selected_case_ids}")
+    output_lines = [
+        "# Multi-Model Qualitative Report",
+        "",
+        "- Models: " + ", ".join(f"`{model}`" for model in args.models),
+        "- Shared case IDs: " + ", ".join(str(case_id) for case_id in selected_case_ids),
+        "",
+    ]
 
-    analyses = {}
-    rows_by_model = {}
+    helpful_lines: list[str] = []
+    hurt_lines: list[str] = []
+
+    analyses: dict[str, dict[int, dict]] = {}
     for model_name in args.models:
-        print(f"\nLoading {model_name} for qualitative analysis...")
+        print(f"Loading {model_name} for shared-case analysis...")
         model = load_model(model_name)
-        model_rows = data_by_model[model_name]
-        model_rows = model_rows[model_rows["case_id"].isin(selected_case_ids)].copy()
-        rows_by_model[model_name] = model_rows
         analyses[model_name] = {}
-
-        for _, row in model_rows.iterrows():
-            case_id = int(row["case_id"])
-            print(f"  Analysing case {case_id}: {row['subject']}")
+        for case_id in selected_case_ids:
+            row = data_by_model[model_name][data_by_model[model_name]["case_id"] == case_id].iloc[0]
             positive = _top_predictions(model, row["positive_prompt"], row["target_token"], args.top_k_predictions)
+            negated = _top_predictions(model, row["negated_prompt"], row["target_token"], args.top_k_predictions)
             patch_scan = activation_patching_scan(
                 model,
                 row["positive_prompt"],
@@ -204,20 +137,21 @@ def main():
                 row["target_token"],
                 top_k=args.top_k_predictions,
             )
-            best = patch_scan["best_patch"]
+            best_patch = patch_scan["best_patch"]
             patched = patched_prompt_metrics(
                 model,
                 row["positive_prompt"],
                 row["negated_prompt"],
                 row["target_token"],
-                patch_type=best["patch_type"],
-                layer=best["layer"],
+                patch_type=best_patch["patch_type"],
+                layer=best_patch["layer"],
                 top_k=args.top_k_predictions,
             )
             analyses[model_name][case_id] = {
                 "row": row,
                 "positive": positive,
-                "patch_scan": patch_scan,
+                "negated": negated,
+                "best_patch": best_patch,
                 "patched": patched,
             }
 
@@ -225,9 +159,82 @@ def main():
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    for case_id in selected_case_ids:
+        ref_row = None
+        for model_name, df in data_by_model.items():
+            candidate = df[df["case_id"] == case_id]
+            if not candidate.empty:
+                ref_row = candidate.iloc[0]
+                break
+        if ref_row is None:
+            continue
+
+        output_lines.extend(
+            [
+                f"## Case {case_id}: {ref_row['subject']}",
+                "",
+                f"- Positive prompt: `{ref_row['positive_prompt']}`",
+                f"- Negated prompt: `{ref_row['negated_prompt']}`",
+                f"- Target token: `{ref_row['target_token']}`",
+                "",
+            ]
+        )
+
+        labels = set()
+        for model_name in args.models:
+            case = analyses[model_name][case_id]
+            row = case["row"]
+            positive = case["positive"]
+            negated = case["negated"]
+            best_patch = case["best_patch"]
+            patched = case["patched"]
+            labels.add("failure" if bool(row["negation_failure"]) else "success")
+
+            if bool(row["negation_failure"]) and patched["target_rank"] > negated["target_rank"]:
+                helpful_lines.append(
+                    f"Case `{case_id}` in `{model_name}` is a failure that improves under patching "
+                    f"(rank {negated['target_rank']} -> {patched['target_rank']})."
+                )
+            if (not bool(row["negation_failure"])) and float(row["sgr"]) > 1:
+                hurt_lines.append(
+                    f"Case `{case_id}` in `{model_name}` succeeds even with SGR `{float(row['sgr']):.3f}`."
+                )
+
+            output_lines.extend(
+                [
+                    f"### {model_name}",
+                    "",
+                    f"- Outcome: `{'failure' if bool(row['negation_failure']) else 'success'}`",
+                    f"- SGR: `{float(row['sgr']):.3f}`",
+                    f"- Best patch: `{best_patch['patch_type']}` at layer `{best_patch['layer']}` with Δ logit `{best_patch['delta']:+.3f}`",
+                    "",
+                    "| Run | Target logit | Target prob | Target rank |",
+                    "|---|---:|---:|---:|",
+                    f"| Positive | {positive['target_logit']:.3f} | {positive['target_prob']:.4f} | {positive['target_rank']} |",
+                    f"| Negated | {negated['target_logit']:.3f} | {negated['target_prob']:.4f} | {negated['target_rank']} |",
+                    f"| Negated (best patch) | {patched['target_logit']:.3f} | {patched['target_prob']:.4f} | {patched['target_rank']} |",
+                    "",
+                    f"- Negated top predictions: {_prediction_rows(negated['top_predictions'])}",
+                    f"- Patched top predictions: {_prediction_rows(patched['top_predictions'])}",
+                    "",
+                ]
+            )
+
+        if len(labels) > 1:
+            hurt_lines.append(
+                f"Case `{case_id}` does not behave consistently across models, which weakens any one-size-fits-all narrative."
+            )
+
+    output_lines.extend(["## What Helps The Story", ""])
+    output_lines.extend([f"- {line}" for line in helpful_lines] or ["- No especially strong shared-case support stood out in this rerun."])
+    output_lines.extend(["", "## What Hurts The Story", ""])
+    output_lines.extend([f"- {line}" for line in hurt_lines] or ["- No especially strong shared-case contradiction stood out in this rerun."])
+    output_lines.extend([""])
+
     output_path = Path(args.output_md)
-    build_report(selected_case_ids, rows_by_model, analyses, output_path)
-    print(f"\nSaved qualitative markdown report -> {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(output_lines), encoding="utf-8")
+    print(f"Saved multi-model qualitative markdown report -> {output_path}")
 
 
 if __name__ == "__main__":

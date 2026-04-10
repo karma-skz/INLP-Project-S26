@@ -1,1 +1,1 @@
-from .load_models import MODEL_SHORTNAMES, SUPPORTED_MODELS, load_model
+from .load_models import CANONICAL_MODEL_NAMES, MODEL_SHORTNAMES, SUPPORTED_MODELS, load_model

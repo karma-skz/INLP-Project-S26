@@ -11,18 +11,12 @@ but packages it for reuse across scripts and models.
 
 from __future__ import annotations
 
-import os
 from functools import partial
 from typing import Dict, Iterable, List, Optional
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from transformer_lens import HookedTransformer
-
-from src.utils import dynamic_axis_limits
 
 
 PATCH_TYPE_TO_HOOK = {
@@ -173,7 +167,7 @@ def dataset_activation_patching_experiment(
     verbose: bool = True,
 ) -> Dict:
     """
-    Average activation patching deltas across a dataset subset and save a figure.
+    Average activation patching deltas across a dataset subset.
     """
     selected_pairs = list(pairs[:max_samples] if max_samples is not None else pairs)
     n_layers = model.cfg.n_layers
@@ -207,24 +201,18 @@ def dataset_activation_patching_experiment(
         for patch_type in PATCH_TYPE_TO_HOOK:
             mean_deltas[patch_type] = np.asarray(accum[patch_type], dtype=float).mean(axis=0)
 
-    os.makedirs(fig_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharex=True)
-    for ax, patch_type in zip(axes, PATCH_TYPE_TO_HOOK):
-        values = mean_deltas[patch_type]
-        ax.plot(range(n_layers), values, marker="o", linewidth=2)
-        ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.6)
-        ax.set_title(f"{patch_type.upper()} patch")
-        ax.set_xlabel("Layer")
-        ax.set_ylabel("Mean Δ target logit")
-        ax.set_ylim(*dynamic_axis_limits(values))
+    del fig_dir, filename, title
 
-    fig.suptitle(title or f"Activation patching summary ({analysed} samples)")
-    plt.tight_layout()
-    path = os.path.join(fig_dir, filename)
-    plt.savefig(path, dpi=150)
-    plt.close()
-    if verbose:
-        print(f"Saved {path}")
+    best_overall = None
+    for patch_type, values in mean_deltas.items():
+        layer = int(np.argmax(values))
+        delta = float(np.max(values))
+        if best_overall is None or delta > best_overall["delta"]:
+            best_overall = {
+                "patch_type": patch_type,
+                "layer": layer,
+                "delta": delta,
+            }
 
     summary = {
         "n_samples": analysed,
@@ -236,6 +224,6 @@ def dataset_activation_patching_experiment(
             }
             for k, v in mean_deltas.items()
         },
-        "figure_path": path,
+        "best_overall": best_overall,
     }
     return summary
