@@ -41,7 +41,7 @@ In this project, we investigate the mechanisms behind negation failures in Large
 % =================================================================
 To effectively process negation, a language model must resolve a structural conflict in its residual stream, which serves as the primary conduit of information across transformer layers. On one hand, internal factual recall mechanisms push robustly for the most likely completion based on training frequency. Conversely, the presence of negation tokens (e.g., "not") must activate secondary circuits to actively inhibit this high-probability output.
 
-Behavioral studies liken this contradiction to the psychological "Pink Elephant" effect or ironic process theory, wherein the instruction to suppress a concept paradoxically enhances its cognitive activation \citep{Vrabcova:2024}. Despite these behavioral categorizations, the precise neural implementation of this conflict remains underexplored.
+Behavioral studies liken this contradiction to the psychological "Pink Elephant" effect or ironic process theory, wherein the instruction to suppress a concept paradoxically enhances its cognitive activation \citep{vrabcova2024}. Despite these behavioral categorizations, the precise neural implementation of this conflict remains underexplored.
 
 We propose the \textbf{Competitive Gating Hypothesis}. We posit that factual recall acts much like an involuntary reflex, retrieving the target token completely agnostic to the surrounding logical context. The negation operator functions as a subsequent gatekeeper, attempting to counteract this signal in the later layers of the network. We track this conflict to pinpoint a "Crossover Point" within the residual stream where logic either subdues the memory signal or is overpowered by it.
 
@@ -58,13 +58,13 @@ Our primary contributions are as follows:
 % =================================================================
 
 \subsection{Memory vs. Logic}
-Research into the localized storage of facts has largely focused on Feed-Forward Networks (FFNs). \citet{Geva:2021} and \citet{Dai:2022} demonstrate that FFNs mathematically function as key-value stores. In mid-to-late layers, they act as "attribute extractors," injecting entity vectors directly into the residual stream, completely independent of the broader logical syntax. 
+Research into the localized storage of facts has largely focused on Feed-Forward Networks (FFNs). \citet{geva2021} and \citet{dai2022} demonstrate that FFNs mathematically function as key-value stores. In mid-to-late layers, they act as "attribute extractors," injecting entity vectors directly into the residual stream, completely independent of the broader logical syntax. 
 
 \subsection{Finding the "Off Switch"}
-The effort to mathematically define sub-networks led to the formalization of "circuits" \citep{Wang:2023}. Building on circuit analysis, \citet{Hanna:2024} discovered "Inhibition Heads" — specialized attention heads that route information specifically to decrease the un-normalized probability (logit) of logically forbidden tokens.
+The effort to mathematically define sub-networks led to the formalization of "circuits" \citep{wang2023}. Building on circuit analysis, \citet{hanna2024} discovered "Inhibition Heads" — specialized attention heads that route information specifically to decrease the un-normalized probability (logit) of logically forbidden tokens.
 
 \subsection{Failures of Negation}
-LLMs frequently struggle with explicit negation. \citet{Truong:2023} observed that this is not easily solved by scaling model size. \citet{Vrabcova:2024} characterized the "Pink Elephant" effect, demonstrating that mentioning a negated concept traps the model's attention mechanism on the forbidden entity, structurally inhibiting correct generation.
+LLMs frequently struggle with explicit negation. \citet{truong2023} observed that this is not easily solved by scaling model size. \citet{vrabcova2024} characterized the "Pink Elephant" effect, demonstrating that mentioning a negated concept traps the model's attention mechanism on the forbidden entity, structurally inhibiting correct generation.
 
 % =================================================================
 \section{Background}
@@ -78,20 +78,20 @@ The output vocabulary logits are the dot product of the final residual stream ve
 \subsection{Activation Patching}
 Activation patching isolates the causal power of a component. Given a clean run ("... is not") and a corrupted run ("... is"), we selectively rewrite the activations of a specific attention head or MLP in the corrupted run with those from the clean run. If the output cleanly flips to the expected correct logic, we confirm that component's causal role in the negation circuit.
 
-\subsection{Linear Representation and Activation Addition}
-Following the Linear Representation framework for LLMs, we test whether emotional concepts are encoded as single, steerable directions in latent space. For a given emotion, we first compute its empirical direction vector $\hat{d}$ by taking the difference in the mean final-layer residual stream activations between positive prompts (e.g., ``I feel happy'') and negated prompts (e.g., ``I do not feel happy''). 
+\subsection{Linear Direction Interventions}
+To causally evaluate the representation of emotions, we adopt the linear-direction intervention methodology detailed in Anthropic's recent work on emotion space geometry \citep{emotions2026}. We define a latent emotion vector $\hat{d}$ for each affective category as the mean difference in residual stream activations between scenarios affirmatively expressing the emotion and baseline scenarios.
 
-To evaluate if the model causally uses this direction, we apply Activation Addition. We inject a scaled version of this latent vector directly into the residual stream $h_{L}$ during the forward pass of the negated prompts:
+During our $\alpha$-sweep interventions, this vector is scaled by a parameter $\alpha$ and injected directly into the transformer's residual stream at identified key layers. The modified residual stream $h^{(\ell)}_{\text{steered}}$ at layer $\ell$ is computed as:
 \begin{equation}
-h'_{L} = h_{L} + \alpha \cdot \hat{d}
+h^{(\ell)}_{\text{steered}} = h^{(\ell)} + \alpha \cdot \hat{d}
 \end{equation}
-where $\alpha$ is a multiplier coefficient linearly swept across a predetermined scale. We then record the model's output logit for the target emotion token at each $\alpha$ step. The coefficient of determination ($R^2$) of a linear regression fit between $\alpha$ and the target logit quantifies the linearity of the emotional representation. An $R^2 \approx 1$ confirms the concept is cleanly and linearly steerable using this isolated vector.
+By sweeping $\alpha$ across a normalized range, we measure the corresponding structural shifts in the logits and the overall behavior of the model. This linear projection conceptualization of model emotion circuitry is similarly contextualized by the broader attribution graph theories and feature-tracking approaches described in \citet{biology2025}.
 
 % =================================================================
 \section{Dataset}
 \label{sec:data}
 % =================================================================
-Our primary experiments utilize the CounterFact benchmark \citep{Meng:2022}, which provides pairs of subject-relation mappings. We constructed templates comparing positive prompt stems (e.g., "The capital of France is") with their syntactically negated counterparts ("The capital of France is not"). For our soft-negation studies, we expanded these prompts with modifiers such as "unlikely to be," "rarely," and "maybe."
+Our primary experiments utilize the CounterFact benchmark \citep{meng2022}, which provides pairs of subject-relation mappings. We constructed templates comparing positive prompt stems (e.g., "The capital of France is") with their syntactically negated counterparts ("The capital of France is not"). For our soft-negation studies, we expanded these prompts with modifiers such as "unlikely to be," "rarely," and "maybe."
 
 For our secondary direction-injection evaluation, we generated an Emotion dataset of paired sequences (e.g. "I feel happy" vs. "I do not feel happy") categorized across basic affective dimensions (joy, sadness, anger, fear) to probe non-factual, semantic negation.
 
@@ -126,7 +126,7 @@ For soft negation, we replace the `` not'' suffix with `` unlikely to be'', `` r
 \label{sec:pipeline}
 % =================================================================
 
-Our experiments run on \texttt{gpt2-small} (117M parameters, 12 layers, 12 heads) and \texttt{pythia-160m} (160M parameters, 12 layers, 12 heads) via the \texttt{TransformerLens} library. The core \textbf{cross-model quantitative analysis} processes the full CounterFact dataset (21,919 pairs for GPT-2 Small, 19,562 for Pythia-160M) and computes, for each pair: the target token's rank in both the positive and negated prompts; the per-layer DLA decomposition; the SGR; the Crossover Point (the first layer where cumulative attention DLA exceeds cumulative FFN DLA); and whether a negation failure occurred. A further 1000-pair subset is used for computationally intensive analyses (head-level DLA, amplification sweeps, activation patching). The \textbf{soft negation} experiment replaces the suffix on the same full dataset with four variants: `` not'', `` unlikely to be'', `` rarely'', and `` maybe''. The \textbf{emotion negation} experiment constructs a separate small dataset of 9-12 balanced affirmation/negation pairs per emotion category and runs direction-extraction, probe training, and alpha-sweep analysis on both models.
+Our experiments run on \texttt{gpt2-small} (117M parameters, 12 layers, 12 heads) and \texttt{pythia-160m} (160M parameters, 12 layers, 12 heads) via the \texttt{TransformerLens} \citep{nanda2022} library. The core \textbf{cross-model quantitative analysis} processes the full CounterFact dataset (21,919 pairs for GPT-2 Small, 19,562 for Pythia-160M) and computes, for each pair: the target token's rank in both the positive and negated prompts; the per-layer DLA decomposition; the SGR; the Crossover Point (the first layer where cumulative attention DLA exceeds cumulative FFN DLA); and whether a negation failure occurred. A further 1000-pair subset is used for computationally intensive analyses (head-level DLA, amplification sweeps, activation patching). The \textbf{soft negation} experiment replaces the suffix on the same full dataset with four variants: `` not'', `` unlikely to be'', `` rarely'', and `` maybe''. The \textbf{emotion negation} experiment constructs a separate small dataset of 9-12 balanced affirmation/negation pairs per emotion category and runs direction-extraction, probe training, and alpha-sweep analysis on both models.
 
 % =================================================================
 \section{Results}
