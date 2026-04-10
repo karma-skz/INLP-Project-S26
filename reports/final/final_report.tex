@@ -48,7 +48,7 @@ We propose the \textbf{Competitive Gating Hypothesis}. We posit that factual rec
 Our primary contributions are as follows:
 \begin{enumerate}
     \item We introduce the Signal-to-Gate Ratio (SGR) as a mathematical proxy for internal mechanism competition.
-    \item We localize a "Crossover Point" around layers 9-11 where suppression must outweigh retrieval.
+    \item We localize a "Crossover Point" typically occurring in the early-to-mid layers (layers 2--8) where suppression must outweigh retrieval.
     \item We demonstrate that amplifying the output of particular inhibition heads directly diminishes hallucination rates, mechanistically grounding the cause of negation failure.
 \end{enumerate}
 
@@ -76,7 +76,7 @@ Before detailing our methodology, we outline the fundamental interpretive techni
 The output vocabulary logits are the dot product of the final residual stream vector and the unembedding matrix. Because the transformer is uniquely additive, we can compute Direct Logit Attribution (DLA) by projecting any individual layer or head's output directly to the vocabulary dimension. This allows us to construct a precise "scoreboard" for any token, viewing which components positively contributed to its probability and which actively subtracted from it.
 
 \subsection{Activation Patching}
-Activation patching isolates the causal power of a component. Given a clean run ("... is not") and a corrupted run ("... is"), we selectively rewrite the activations of a specific attention head or MLP in the corrupted run with those from the clean run. If the output cleanly flips to the expected correct logic, we confirm that component's causal role in the negation circuit.
+Activation patching isolates the causal power of a component. Given a clean run ("... is") and a corrupted run ("... is not"), we selectively rewrite the activations of a specific attention head or MLP in the corrupted run with those from the clean run. If the output cleanly flips to the expected correct logic, we confirm that component's causal role in the negation circuit.
 
 \subsection{Linear Direction Interventions}
 To causally evaluate the representation of emotions, we adopt the linear-direction intervention methodology detailed in Anthropic's recent work on emotion space geometry \citep{emotions2026}. We define a latent emotion vector $\hat{d}$ for each affective category as the mean difference in residual stream activations between scenarios affirmatively expressing the emotion and baseline scenarios.
@@ -259,7 +259,7 @@ In \texttt{gpt2-small}, Anger ($R^2 = 0.978$), Fear ($R^2 = 0.979$), and Sadness
 % =================================================================
 
 \subsection{When is Recall Logic-Blind?}
-The per-layer DLA means confirm the core premise of the Competitive Gating Hypothesis. Early-to-mid FFN layers (approximately layers 3--8) inject strong, positive DLA contributions toward the factual target, with this pattern being \emph{nearly identical} between the positive and negated prompts. The FFN does not "see'' negation; it fires unconditionally based on the entity in context. The inhibition from attention heads is a distinctly late phenomenon: meaningful negative DLA from attention only appears in layers 9--11. A ``Crossover Point'' can be identified in the cumulative DLA as the first layer where total negative attention DLA exceeds total positive FFN DLA. Cases where the crossover occurs at a later layer, or not at all, are systematically associated with higher failure rates and larger SGR values.
+The per-layer DLA means confirm the core premise of the Competitive Gating Hypothesis. Early-to-mid FFN layers (approximately layers 3--8) inject strong, positive DLA contributions toward the factual target, with this pattern being \emph{nearly identical} between the positive and negated prompts. The FFN does not "see'' negation; it fires unconditionally based on the entity in context. The strongest inhibition from individual attention heads is a late phenomenon, concentrating in layers 7--11. However, a ``Crossover Point''---the first layer where \emph{cumulative} negative attention DLA exceeds cumulative positive FFN DLA---can typically be identified much earlier in the network, predominantly between layers 2 and 8. Instances where this crossover is delayed to a later layer, or completely fails to occur, are systematically associated with higher failure rates and larger SGR values.
 
 \begin{figure}[h]
     \centering
