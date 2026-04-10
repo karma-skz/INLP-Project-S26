@@ -34,14 +34,12 @@ INLP-Project-S26/
 ├── run_pipeline.py
 ├── run_emotion_negation_experiment.py
 ├── run_cross_model_experiments.py
-├── run_qualitative_analysis.py
-├── run_multi_model_qualitative_report.py
+├── run_final_qualitative_analysis.py
 ├── figures/
 ├── reports/
 │   ├── final/
 │   ├── cross_model_experiments.md
-│   ├── qualitative_analysis.md
-│   └── qualitative_multimodel_report.md
+│   └── qualitative.md
 └── src/
     ├── analysis/
     ├── benchmark/
@@ -221,25 +219,17 @@ The markdown report is written to:
 
 ## Qualitative Reports
 
-To build a qualitative report from an existing benchmark CSV:
+To build a detailed qualitative package from existing cross-model benchmark CSVs:
 
 ```bash
-python run_qualitative_analysis.py
-```
-
-This writes a markdown case-study report to:
-
-- `reports/qualitative_analysis.md`
-
-To compare shared cases across multiple models:
-
-```bash
-python run_multi_model_qualitative_report.py --results_dir results/cross_model
+python run_final_qualitative_analysis.py --models gpt2-small pythia-160m --results_dir results/cross_model --n_cases 10
 ```
 
 This writes:
 
-- `reports/qualitative_multimodel_report.md`
+- markdown report to `reports/qualitative.md`
+- case/global CSV outputs to `results/qualitative/`
+- plots to `figures/qualitative/`
 
 These reports are useful if you want to inspect example prompts, token ranks, top predictions, and patching behavior for specific cases instead of only looking at aggregate figures.
 

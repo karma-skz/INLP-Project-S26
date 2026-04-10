@@ -1,0 +1,3 @@
+case_id,model_name,dominant_shift_layer,dominant_shift_value,total_abs_shift,top3_layer_shift_share,single_layer_shift_share
+8676,gpt2-small,11,-25.58203,87.86592,0.6046367010099023,0.291148490791424
+8676,pythia-160m,11,-34.347660000000005,53.551350000000006,0.8022791208811729,0.6413967154889653
