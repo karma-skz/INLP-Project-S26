@@ -4,6 +4,7 @@ import argparse
 import gc
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -11,6 +12,7 @@ import torch
 from src.analysis import EmotionDirectionResult, analyze_emotion_negation
 from src.dataset import build_emotion_prompt_dataset
 from src.models import CANONICAL_MODEL_NAMES, MODEL_SHORTNAMES, load_model
+from src.utils import dynamic_axis_limits
 
 
 def parse_args():
@@ -36,45 +38,102 @@ def parse_args():
         default=[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0],
         help="Intervention strengths, measured in direction-projection standard deviations",
     )
-    parser.add_argument("--results_dir", default="results/emotion_negation", help="Directory for CSVs and vector artifacts")
-    parser.add_argument("--report_dir", default="reports", help="Directory for markdown reports")
+    parser.add_argument("--results_dir", default="results/emotion_negation", help="Directory for metric CSV artifacts")
+    parser.add_argument("--figures_dir", default="figures/emotion_negation", help="Directory for easy-to-read metric plots")
     return parser.parse_args()
 
 
-def _save_direction_artifacts(result: EmotionDirectionResult, output_path: str) -> str:
-    payload: dict[str, np.ndarray] = {}
-    for (emotion, layer), vector in result.direction_vectors.items():
-        payload[f"direction__{emotion}__layer_{layer}"] = vector
-    for (emotion, prompt_kind, layer), vector in result.mean_vectors.items():
-        payload[f"mean__{emotion}__{prompt_kind}__layer_{layer}"] = vector
+def _save_metric_plots(
+    model_name: str,
+    peak_df: pd.DataFrame,
+    negation_peak_df: pd.DataFrame,
+    linearity_peak_df: pd.DataFrame,
+    output_dir: str,
+) -> list[str]:
+    os.makedirs(output_dir, exist_ok=True)
+    paths: list[str] = []
 
-    np.savez_compressed(output_path, **payload)
-    return output_path
+    if not peak_df.empty:
+        plot_df = peak_df.sort_values("emotion").reset_index(drop=True)
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        bars = ax.bar(plot_df["emotion"], plot_df["peak_direction_norm"], color="#4C78A8")
+        for bar, layer in zip(bars, plot_df["peak_layer"]):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"L{int(layer)}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+        lo, hi = dynamic_axis_limits(plot_df["peak_direction_norm"], floor=0.0)
+        ax.set_ylim(lo, hi)
+        ax.set_title(f"{model_name}: Peak direction strength by emotion")
+        ax.set_xlabel("Emotion")
+        ax.set_ylabel("Peak direction norm")
+        fig.tight_layout()
+        out = os.path.join(output_dir, "peak_direction_strength.png")
+        fig.savefig(out, dpi=180)
+        plt.close(fig)
+        paths.append(out)
 
+    if not negation_peak_df.empty:
+        gap_df = negation_peak_df.sort_values("emotion").reset_index(drop=True)
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        ax.bar(gap_df["emotion"], gap_df["distance_gap"], color="#F58518")
+        ax.axhline(0.0, color="black", linewidth=1)
+        lo, hi = dynamic_axis_limits(gap_df["distance_gap"])
+        ax.set_ylim(lo, hi)
+        ax.set_title(f"{model_name}: Negation distance gap (opposite - neutral)")
+        ax.set_xlabel("Emotion")
+        ax.set_ylabel("Distance gap")
+        fig.tight_layout()
+        out = os.path.join(output_dir, "negation_distance_gap.png")
+        fig.savefig(out, dpi=180)
+        plt.close(fig)
+        paths.append(out)
 
-def _format_table(df: pd.DataFrame, columns: list[str], float_cols: set[str] | None = None) -> str:
-    if df.empty:
-        return "No rows available.\n"
+        rate_df = negation_peak_df.dropna(subset=["closer_to_neutral_rate"]).sort_values("emotion").reset_index(drop=True)
+        if not rate_df.empty:
+            fig, ax = plt.subplots(figsize=(8, 4.5))
+            ax.bar(rate_df["emotion"], rate_df["closer_to_neutral_rate"], color="#54A24B")
+            ax.axhline(0.5, color="black", linewidth=1, linestyle="--")
+            ax.set_ylim(0.0, 1.0)
+            ax.set_title(f"{model_name}: Negation moves toward neutral")
+            ax.set_xlabel("Emotion")
+            ax.set_ylabel("Closer-to-neutral rate")
+            fig.tight_layout()
+            out = os.path.join(output_dir, "closer_to_neutral_rate.png")
+            fig.savefig(out, dpi=180)
+            plt.close(fig)
+            paths.append(out)
 
-    float_cols = float_cols or set()
-    subset = df.loc[:, columns].copy()
-    lines = [
-        "| " + " | ".join(columns) + " |",
-        "| " + " | ".join(["---"] * len(columns)) + " |",
-    ]
-    for row in subset.itertuples(index=False, name=None):
-        values = []
-        for col, value in zip(columns, row):
-            if pd.isna(value):
-                values.append("")
-            elif col in float_cols:
-                values.append(f"{float(value):.4f}")
-            elif isinstance(value, (np.integer, int)):
-                values.append(str(int(value)))
-            else:
-                values.append(str(value))
-        lines.append("| " + " | ".join(values) + " |")
-    return "\n".join(lines) + "\n"
+    if not linearity_peak_df.empty and {"emotion", "slope", "linearity_r2"}.issubset(linearity_peak_df.columns):
+        lin_df = linearity_peak_df.sort_values("emotion").reset_index(drop=True)
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+
+        axes[0].bar(lin_df["emotion"], lin_df["slope"], color="#B279A2")
+        axes[0].axhline(0.0, color="black", linewidth=1)
+        lo, hi = dynamic_axis_limits(lin_df["slope"])
+        axes[0].set_ylim(lo, hi)
+        axes[0].set_title("Injection slope")
+        axes[0].set_xlabel("Emotion")
+        axes[0].set_ylabel("Slope")
+
+        axes[1].bar(lin_df["emotion"], lin_df["linearity_r2"], color="#72B7B2")
+        axes[1].set_ylim(0.0, 1.0)
+        axes[1].set_title("Linearity ($R^2$)")
+        axes[1].set_xlabel("Emotion")
+        axes[1].set_ylabel("$R^2$")
+
+        fig.suptitle(f"{model_name}: Peak-layer intervention metrics")
+        fig.tight_layout()
+        out = os.path.join(output_dir, "intervention_linearity.png")
+        fig.savefig(out, dpi=180)
+        plt.close(fig)
+        paths.append(out)
+
+    return paths
 
 
 def _peak_summary(summary_df: pd.DataFrame, reference_layers: dict[str, int]) -> pd.DataFrame:
@@ -136,166 +195,13 @@ def _peak_linearity_summary(peak_df: pd.DataFrame, linearity_summary: pd.DataFra
     return peak_df[["emotion", "peak_layer"]].merge(work, on=["emotion", "peak_layer"], how="left").sort_values("emotion").reset_index(drop=True)
 
 
-def _supportive_findings(peak_df: pd.DataFrame, negation_peak_df: pd.DataFrame, linearity_peak_df: pd.DataFrame, reference_layers: dict[str, int]) -> list[str]:
-    findings: list[str] = []
-
-    if not peak_df.empty and (peak_df["peak_layer"] >= reference_layers["middle"]).all():
-        findings.append("All emotions peak in the middle-to-late layers, which supports the claim that negation-sensitive directions consolidate late.")
-
-    strong_probe = peak_df.dropna(subset=["peak_probe_accuracy"])
-    if not strong_probe.empty and (strong_probe["peak_probe_accuracy"] >= 0.9).all():
-        findings.append("Peak-layer probe accuracy stays high across emotions, so affirmed and negated prompts are linearly separable once the representation is formed.")
-
-    neutral_rows = negation_peak_df.dropna(subset=["closer_to_neutral_rate"])
-    if not neutral_rows.empty:
-        winners = neutral_rows[neutral_rows["closer_to_neutral_rate"] > 0.5]
-        if not winners.empty:
-            findings.append(
-                "At least some emotions move closer to neutral than to their opposite under negation, which helps the attenuation-not-flip interpretation."
-            )
-
-    if not linearity_peak_df.empty:
-        strong_linear = linearity_peak_df.dropna(subset=["linearity_r2"])
-        strong_linear = strong_linear[strong_linear["linearity_r2"] >= 0.8]
-        if not strong_linear.empty:
-            findings.append("Some peak-layer direction injections remain reasonably linear, so the learned directions are not purely descriptive.")
-
-    return findings
-
-
-def _contradictory_findings(negation_peak_df: pd.DataFrame, linearity_peak_df: pd.DataFrame) -> list[str]:
-    findings: list[str] = []
-
-    neutral_rows = negation_peak_df.dropna(subset=["closer_to_neutral_rate"])
-    if not neutral_rows.empty:
-        weak_rows = neutral_rows[neutral_rows["closer_to_neutral_rate"] <= 0.5]
-        if not weak_rows.empty:
-            emotions = ", ".join(f"`{emotion}`" for emotion in weak_rows["emotion"].tolist())
-            findings.append(f"{emotions} do not reliably move toward neutral at the peak layer, which weakens a universal attenuation claim.")
-
-    if not linearity_peak_df.empty:
-        weak_linear = linearity_peak_df.dropna(subset=["linearity_r2"])
-        weak_linear = weak_linear[weak_linear["linearity_r2"] < 0.5]
-        if not weak_linear.empty:
-            emotions = ", ".join(f"`{emotion}`" for emotion in weak_linear["emotion"].tolist())
-            findings.append(f"{emotions} show weak linearity at the peak layer, so the causal direction story is uneven across emotions.")
-
-    missing_opposites = negation_peak_df["opposite_emotion"].isna().sum()
-    if missing_opposites > 0:
-        findings.append("Some emotions still lack explicit opposite-emotion controls, so the neutral-vs-opposite conclusion is incomplete.")
-
-    return findings
-
-
-def write_markdown_report(
-    model_name: str,
-    dataset_df: pd.DataFrame,
-    peak_df: pd.DataFrame,
-    negation_peak_df: pd.DataFrame,
-    linearity_peak_df: pd.DataFrame,
-    report_path: str,
-    representation: str,
-    reference_layers: dict[str, int],
-) -> str:
-    os.makedirs(os.path.dirname(report_path), exist_ok=True)
-    support_lines = _supportive_findings(peak_df, negation_peak_df, linearity_peak_df, reference_layers)
-    contradiction_lines = _contradictory_findings(negation_peak_df, linearity_peak_df)
-
-    lines = [
-        f"# Emotion Negation Report: {model_name}",
-        "",
-        "## Setup",
-        "",
-        f"- Model: `{model_name}`",
-        f"- Representation: `{representation}`",
-        f"- Prompt examples: `{len(dataset_df)}`",
-        f"- Emotion pairs: `{int((dataset_df['prompt_kind'] == 'affirmed').sum())}` affirmed and `{int((dataset_df['prompt_kind'] == 'negated').sum())}` negated",
-        f"- Neutral controls: `{int((dataset_df['prompt_kind'] == 'neutral').sum())}`",
-        f"- Reference layers: `{reference_layers}`",
-        "",
-        "## Peak Direction Summary",
-        "",
-        _format_table(
-            peak_df,
-            ["emotion", "peak_layer", "peak_direction_norm", "peak_probe_accuracy", "early", "late", "late_over_early"],
-            float_cols={"peak_direction_norm", "peak_probe_accuracy", "early", "late", "late_over_early"},
-        ),
-        "Interpretation:",
-        "",
-        "- `peak_direction_norm` is the strongest affirmed-vs-negated separation for that emotion.",
-        "- `late_over_early` compares mean late-layer strength to early-layer strength; values above 1 mean the direction gets stronger deeper in the network.",
-        "",
-        "## Negation Behaviour At The Peak Layer",
-        "",
-        _format_table(
-            negation_peak_df,
-            ["emotion", "peak_layer", "opposite_emotion", "distance_to_neutral", "distance_to_opposite", "distance_gap", "closer_to_neutral_rate"],
-            float_cols={"distance_to_neutral", "distance_to_opposite", "distance_gap", "closer_to_neutral_rate"},
-        ),
-        "Interpretation:",
-        "",
-        "- Negative `distance_gap` means the negated representation is closer to the opposite emotion than to neutral.",
-        "- `closer_to_neutral_rate` above 0.5 means negation behaves more like attenuation than a polarity flip for most prompts.",
-        "",
-    ]
-
-    if not linearity_peak_df.empty:
-        lines.extend(
-            [
-                "## Peak-Layer Direction Injection",
-                "",
-                _format_table(
-                    linearity_peak_df,
-                    ["emotion", "peak_layer", "contrast_label", "slope", "linearity_r2", "start_margin", "end_margin"],
-                    float_cols={"slope", "linearity_r2", "start_margin", "end_margin"},
-                ),
-                "Interpretation:",
-                "",
-                "- Positive `slope` means moving along the learned direction increases target emotion mass relative to the contrast set.",
-                "- Higher `linearity_r2` means the effect changes more predictably as the intervention strength grows.",
-                "",
-            ]
-        )
-
-    lines.extend(
-        [
-            "## What Helps The Story",
-            "",
-        ]
-    )
-    lines.extend([f"- {line}" for line in support_lines] or ["- No strong supporting pattern emerged in this rerun."])
-    lines.extend(
-        [
-            "",
-            "## What Hurts The Story",
-            "",
-        ]
-    )
-    lines.extend([f"- {line}" for line in contradiction_lines] or ["- No strong contradictory pattern emerged in this rerun."])
-    lines.extend(
-        [
-            "",
-            "## Bottom Line",
-            "",
-            "- This report is text-only by design: no PCA, heatmaps, or line plots are used in the write-up.",
-            "- The most useful pieces here are where the direction peaks, whether it strengthens late, and whether negation moves emotions toward neutral or somewhere else.",
-            "",
-        ]
-    )
-
-    with open(report_path, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines))
-
-    return report_path
-
-
 def run_emotion_negation_report(
     model_names: list[str] | None = None,
     layers: list[int] | None = None,
     representation: str = "final_token",
     alpha_values: list[float] | None = None,
     results_dir: str = "results/emotion_negation",
-    report_dir: str = "reports",
+    figures_dir: str = "figures/emotion_negation",
 ) -> dict[str, dict[str, str]]:
     model_names = model_names or CANONICAL_MODEL_NAMES
     outputs: dict[str, dict[str, str]] = {}
@@ -318,47 +224,37 @@ def run_emotion_negation_report(
         )
 
         model_results_dir = os.path.join(results_dir, model_name)
+        model_figures_dir = os.path.join(figures_dir, model_name)
         os.makedirs(model_results_dir, exist_ok=True)
-        os.makedirs(report_dir, exist_ok=True)
 
-        dataset_csv = os.path.join(model_results_dir, "emotion_prompt_metadata.csv")
         summary_csv = os.path.join(model_results_dir, "emotion_direction_summary.csv")
         negation_csv = os.path.join(model_results_dir, "emotion_negation_sensitivity.csv")
         linearity_summary_csv = os.path.join(model_results_dir, "emotion_linearity_summary.csv")
-        vectors_npz = os.path.join(model_results_dir, "emotion_direction_vectors.npz")
-        report_path = os.path.join(report_dir, f"emotion_negation_{model_name}.md")
 
         peak_df = _peak_summary(result.summary, result.reference_layers)
         negation_peak_df = _peak_negation_summary(peak_df, result.negation_sensitivity)
         linearity_peak_df = _peak_linearity_summary(peak_df, result.linearity_summary)
 
-        result.metadata.to_csv(dataset_csv, index=False)
         peak_df.to_csv(summary_csv, index=False)
         negation_peak_df.to_csv(negation_csv, index=False)
         linearity_peak_df.to_csv(linearity_summary_csv, index=False)
-        _save_direction_artifacts(result, vectors_npz)
-
-        write_markdown_report(
+        figure_paths = _save_metric_plots(
             model_name=model_name,
-            dataset_df=result.metadata,
             peak_df=peak_df,
             negation_peak_df=negation_peak_df,
             linearity_peak_df=linearity_peak_df,
-            report_path=report_path,
-            representation=representation,
-            reference_layers=result.reference_layers,
+            output_dir=model_figures_dir,
         )
 
         print(f"Saved results to: {model_results_dir}")
-        print(f"Saved report to:  {report_path}")
+        if figure_paths:
+            print(f"Saved figures to: {model_figures_dir}")
 
         outputs[model_name] = {
-            "dataset_csv": dataset_csv,
             "summary_csv": summary_csv,
             "negation_csv": negation_csv,
             "linearity_summary_csv": linearity_summary_csv,
-            "vectors_npz": vectors_npz,
-            "report_path": report_path,
+            "figures_dir": model_figures_dir,
         }
 
         del model
@@ -377,7 +273,7 @@ def main():
         representation=args.representation,
         alpha_values=args.alpha_values,
         results_dir=args.results_dir,
-        report_dir=args.report_dir,
+        figures_dir=args.figures_dir,
     )
 
 
