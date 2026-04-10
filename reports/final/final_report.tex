@@ -62,7 +62,7 @@ Our primary contributions are as follows:
 Research into the localized storage of facts has largely focused on Feed-Forward Networks (FFNs). \citet{geva2021} and \citet{dai2022} demonstrate that FFNs mathematically function as key-value stores. In mid-to-late layers, they act as "attribute extractors," injecting entity vectors directly into the residual stream, completely independent of the broader logical syntax. 
 
 \subsection{Finding the "Off Switch"}
-The effort to mathematically define sub-networks led to the formalization of "circuits" \citep{wang2023}. Building on circuit analysis, \citet{hanna2024} discovered "Inhibition Heads" — specialized attention heads that route information specifically to decrease the un-normalized probability (logit) of logically forbidden tokens.
+The effort to mathematically define sub-networks led to the formalization of "circuits" and the identification of "Inhibition Heads" — specialized attention heads that route information specifically to decrease the un-normalized probability (logit) of logically forbidden tokens \citep{wang2023}.
 
 \subsection{Failures of Negation}
 LLMs frequently struggle with explicit negation. \citet{truong2023} observed that this is not easily solved by scaling model size. \citet{vrabcova2024} characterized the "Pink Elephant" effect, demonstrating that mentioning a negated concept traps the model's attention mechanism on the forbidden entity, structurally inhibiting correct generation.
