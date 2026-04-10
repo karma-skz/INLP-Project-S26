@@ -17,7 +17,8 @@ env/
 *.ipynb
 
 ### Data & outputs ###
-# results
+# Exclude generated benchmark CSVs (can be very large)
+results/**/*.csv
 data/*
 models/*
 
