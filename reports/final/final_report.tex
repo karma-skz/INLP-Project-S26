@@ -38,7 +38,7 @@ Using TransformerLens, we build a seven-stage mechanistic analysis pipeline and 
 Our results reveal that negation failure rates remain stubbornly between 9.1\% and 12.9\% regardless of model scale.
 SGR~$>$~1 is a necessary condition for all observed failures, and SGR~$<$~1 yields a \textbf{100\% success rate} in negation, providing definitive support for the hypothesis.
 Crossover analysis localises the critical inhibition boundary to layers~5--7, and activation patching causally confirms that mid-layer attention constitutes the inhibition circuit.
-Extended amplification experiments demonstrate that scaling inhibition heads by $\alpha\!=\!4$ halves the failure rate in GPT-2 Small (10.4\%~$\to$~5.5\%) and nearly eliminates it in Pythia-160M (7.6\%~$\to$~3.8\%).
+Extended amplification experiments demonstrate that scaling inhibition heads by $\alpha\!=\!4$ roughly halves the failure rate in GPT-2 Small (11.4\%~$\to$~5.5\%) and significantly reduces it in Pythia-160M (9.1\%~$\to$~3.8\%).
 Finally, a semantic audit reveals that relation type is a powerful predictor of failure vulnerability, with ``field of work'' prompts failing at 83.3\% while geographic relations achieve 0\% failure.
 \end{abstract}
 
@@ -210,6 +210,7 @@ Three additional post-hoc analyses extend the pipeline:
 
 \begin{table}[t]
 \centering\small
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
 \textbf{Model} & \textbf{Pairs} & \textbf{Fail\,\%} & \textbf{Mean SGR} & \textbf{Median SGR} \\
@@ -220,14 +221,15 @@ GPT-2 Large  & 21,919 & 12.9 & 288.5  & 48.6 \\
 Pythia-160M  & 19,562 & \textbf{9.1}  & 205.1  & 24.5 \\
 Pythia-410M  & 19,562 & 11.2 & \textbf{10.0}   & \textbf{6.3}  \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \caption{Behavioural summary across all five models. Failure rates remain between 9.1--12.9\% despite $6\times$ parameter scaling. Pythia-410M has the lowest SGR, indicating the strongest relative inhibition.}
 \label{tab:results}
 \end{table}
 
 Table~\ref{tab:results} presents the core results. Three key observations emerge:
 
-\paragraph{Scaling does not fix negation.} Negation failure rates range from 9.1\% (Pythia-160M) to 12.9\% (GPT-2 Large). Remarkably, GPT-2 Large (774M parameters) has a \emph{higher} failure rate than GPT-2 Small (124M), confirming prior behavioural findings~\cite{truong-etal-2023-language} but now with a mechanistic explanation: larger FFN capacity increases retrieval strength without proportionally strengthening inhibition.
+\paragraph{Scaling does not fix negation.} Negation failure rates range from 9.1\% (Pythia-160M) to 12.9\% (GPT-2 Large). Remarkably, GPT-2 Large (774M parameters) has a \emph{higher} failure rate than GPT-2 Small (124M), confirming prior behavioural findings~\cite{truong-etal-2023-language} but now with a mechanistic explanation: larger FFN capacity increases retrieval strength without proportionally strengthening inhibition---the memory muscle grows faster than the logic brake.
 
 \paragraph{SGR distributions are heavily right-skewed.} Mean SGRs range from 10.0 (Pythia-410M) to 806.1 (GPT-2 Medium), reflecting extreme tail cases where inhibition is negligible. The median is consistently more representative (6.3--53.0), indicating that for most prompts, retrieval moderately outweighs inhibition.
 
@@ -246,6 +248,7 @@ Figure~\ref{fig:sgrhist} shows the SGR distribution colour-coded by negation out
 
 \begin{table}[t]
 \centering\small
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
 \textbf{Model} & \textbf{SGR\,$>$\,1} & \textbf{Spearman $r$} & \multicolumn{2}{c}{\textbf{95\% CI (Fail\%)}} \\
@@ -258,7 +261,8 @@ GPT-2 Large  & 83.6\% & 0.008  & 12.5 & 13.4 \\
 Pythia-160M  & 94.4\% & 0.013  & 8.7  & 9.6  \\
 Pythia-410M  & 99.9\% & 0.011  & 10.7 & 11.6 \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \caption{Statistical analysis of SGR across models. Spearman correlations are modest but the SGR\,$>$\,1 condition is universal among failures.}
 \label{tab:stats}
 \end{table}
@@ -304,6 +308,7 @@ Figure~\ref{fig:perlayer} reveals the mechanistic core of the hypothesis:
 \end{itemize}
 
 \subsection{Crossover Analysis}
+\label{sec:crossover}
 
 \begin{figure}[t]
   \centering
@@ -405,7 +410,7 @@ Pythia-160M  & 7.6\%  & 7.8\% & 3.8\%  & $-$50\% \\
 Pythia-410M  & 10.0\% & 9.3\% & 5.2\%  & $-$48\% \\
 \bottomrule
 \end{tabular}
-\caption{Amplification effectiveness. Failure rate reduction at $\alpha\!=\!4$ vs.\ baseline. GPT-2 Large is the exception (\S\ref{sec:neg_results}).}
+\caption{Amplification effectiveness on a 1,000-sample subset. Failure rate reduction at $\alpha\!=\!4$ vs.\ baseline. GPT-2 Large is the exception (\S\ref{sec:neg_results}).}
 \label{tab:amp}
 \end{table}
 
@@ -430,8 +435,6 @@ We cross-referenced failure patterns with CounterFact's relation-type metadata t
 \end{itemize}
 
 \paragraph{The logit drop inversion.} In successful negation, the ``not'' token reduces the target logit by an average of 4.18 points. In \emph{failure} cases, the logit \emph{increases} by 1.04 points the negation paradoxically \emph{strengthens} the factual retrieval, exemplifying the Pink Elephant effect at the mechanistic level.
-
-
 
 \paragraph{Subject complexity.} Multi-word subjects produce more failures (15 of 24 failures have $\geq$2-word subjects). Wider associative FFN activity for complex entities creates a stronger memory signal, making suppression harder.
 
@@ -459,22 +462,12 @@ To complement the dataset-scale quantitative results, we selected ten representa
 Figure~\ref{fig:qual_rank} shows that the average rank drop for the target token is substantial across all ten cases, including those where the model correctly avoided the factual completion. This confirms that ``not'' does alter the model's internal distribution, but the redirect often lands on a semantically similar token rather than a structurally distinct suppression.
 
 \paragraph{Negation-induced shift is concentrated in late layers.}
-Figure~\ref{fig:qual_heatmap} reveals a consistent pattern: the dominant shift layer for both models is concentrated in layer 10--11, with the top-3 layers accounting for 43--81\% of all absolute shift. This is fully consistent with our crossover analysis (Section~\ref{sec:results}), which locates the inhibition circuit at layers 5--9: the early layers \emph{detect} the negation signal, and the late layers deliver its cumulative suppression effect on the residual stream.
+Figure~\ref{fig:qual_heatmap} reveals a consistent pattern: the dominant shift layer for both models is concentrated in layer 10--11, with the top-3 layers accounting for 43--81\% of all absolute shift. This is fully consistent with our crossover analysis (Section~\ref{sec:crossover}), which locates the inhibition circuit at layers 5--9: the early layers \emph{detect} the negation signal, and the late layers deliver its cumulative suppression effect on the residual stream.
 
 \paragraph{Inter-model disagreement reveals circuit brittleness.}
 Several cases show failure on one model but success on the other (e.g.\ Case~8676 where GPT-2 Small succeeds at SGR$=0.012$ while Pythia-160M fails at SGR$=271$). These disagreements, absent in hard-categorical relations (geography, religion), concentrate in soft-associative relation types (occupation, language), corroborating the semantic audit findings in Section~\ref{sec:audit}.
 
 % =================================================================
-\section{Evaluation}
-
-\label{sec:evaluation}
-% =================================================================
-
-\subsection{Hypothesis Validation}
-Our experimental framework enables the direct evaluation of the Competitive Gating Hypothesis. Through the metrics outlined in our methodology, we assess the precise balance between FFN retrieval and attention inhibition.
-
-The validation relies primarily on the Signal-to-Gate Ratio (SGR) and crossover layer metrics. When the inhibition signal exceeds retrieval (SGR\,$<$\,1), the model successfully suppresses the factual token. Correspondingly, crossover analysis and patching both converge on layers 5--9 as the critical boundary for 12-layer models. The systematic presence of this relationship confirms the core logic of the hypothesis.
-
 % =================================================================
 \section{Analysis}
 \label{sec:analysis}
@@ -496,8 +489,6 @@ Our framework generated multiple strong positive findings validating the mechani
 \paragraph{GPT-2 Large resists amplification.} Uniquely among the five models, GPT-2 Large shows \emph{increased} failure rates when inhibition heads are amplified ($11.9\% \to 13.4\%$ at $\alpha\!=\!4$). We hypothesise that at 36 layers and 20 heads, the inhibition circuit is more distributed, and amplifying only 10 heads creates interference with the broader suppression ensemble. This suggests that the simple ``top-$k$ heads'' amplification strategy does not scale linearly with model depth.
 
 \paragraph{Weak continuous correlations.} Spearman correlations between SGR and failure range from $r\!=\!0.008$ to $r\!=\!0.018$ for the larger models (Table~\ref{tab:stats}). This reflects a ceiling effect: when $>$83\% of samples have SGR\,$>$\,1, the metric's discriminative power operates primarily at its \emph{binary} threshold rather than as a continuous predictor.
-
-\paragraph{Scaling does not help.} Counter to naive expectations, GPT-2 Large (774M params) fails \emph{more frequently} than GPT-2 Small (124M params). Larger FFN capacity amplifies retrieval without proportionally strengthening the inhibition circuit the memory muscle grows faster than the logic brake.
 
 \subsection{Ablation Studies}
 \label{sec:ablations}
@@ -561,7 +552,8 @@ We extended the pipeline to test three additional negation constructions---\text
 
 \begin{table}[htbp]
 \centering\small
-\begin{tabular}{@{}llrrrr@{}}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llrrr@{}}
 \toprule
 \textbf{Model} & \textbf{Negator} & \textbf{Fail\,\%} & \textbf{Med.\,SGR} & \textbf{SGR$>$1\,\%} \\
 \midrule
@@ -577,7 +569,8 @@ We extended the pipeline to test three additional negation constructions---\text
   & rarely            &  \textbf{3.52} & 25.4 &  99.9 \\
   & maybe             &  9.18 & 35.0 &  99.9 \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \caption{Failure rates and SGR statistics across four negation constructions. \textit{Rarely} achieves the lowest failure rate for both models.}
 \label{tab:soft_neg}
 \end{table}
@@ -611,12 +604,10 @@ Across all negators, SGR\,$<$\,1 continues to yield zero failures---except for \
 \subsection{Limitations and Challenges}
 \label{sec:limitations}
 
-
-
 \begin{itemize}
 \item \textbf{Hard negation focus.} The main benchmark uses ``is not'' negation. Soft constructions (``unlikely to be,'' ``rarely'') were tested as an extension (Section~\ref{sec:soft_negation}) and show substantially lower failure rates, but head-level DLA for these negators remains future work.
 \item \textbf{Single dataset.} All results use CounterFact. Generalisation to free-form negation in open-ended generation remains untested.
-\item \textbf{SGR\,$<$\,1 rarity.} The perfect success rate at SGR\,$<$\,1 is based on very few samples ($n\!=\!1$ for GPT-2 Small's finite-SGR samples). While promising, larger sample sizes at this threshold are needed for stronger claims.
+\item \textbf{SGR\,$<$\,1 rarity.} As noted in Section~\ref{sec:sgrlt1}, the perfect success rate for SGR\,$<$\,1 is based on very few samples due to the architectural dominance of the retrieval circuit. Validating this boundary condition on larger models remains future work.
 \item \textbf{Top-$k$ head selection.} Our amplification strategy amplifies a fixed set of 10 heads. The GPT-2 Large results suggest this may be too coarse for deeper models.
 \item \textbf{Causal granularity.} Patching at the layer level conflates multiple head contributions. Head-level patching would provide finer causal resolution.
 \end{itemize}
@@ -628,7 +619,7 @@ This work analyses the internal mechanisms of publicly available language models
 \subsection{Future Work}
 
 \begin{itemize}
-\item \textbf{Soft negation:} Extend to ``is unlikely to be'' and ``rarely'' constructions, comparing SGR distributions to hard negation.
+\item \textbf{Soft negation at head-level:} Perform head-level DLA for ``is unlikely to be'' and ``rarely'' to determine if soft negators recruit the same inhibition circuit as hard negation.
 \item \textbf{Head-level patching:} Patch individual inhibition heads rather than full layers for finer causal resolution.
 \item \textbf{Ablation:} Remove individual inhibition heads to confirm causal \emph{necessity} (complementing the amplification sufficiency evidence).
 \item \textbf{Larger models:} Test on GPT-2 XL, Pythia-1B, and instruction-tuned models to determine whether RLHF strengthens the inhibition circuit.
