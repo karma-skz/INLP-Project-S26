@@ -78,7 +78,14 @@ The output vocabulary logits are the dot product of the final residual stream ve
 \subsection{Activation Patching}
 Activation patching isolates the causal power of a component. Given a clean run ("... is not") and a corrupted run ("... is"), we selectively rewrite the activations of a specific attention head or MLP in the corrupted run with those from the clean run. If the output cleanly flips to the expected correct logic, we confirm that component's causal role in the negation circuit.
 
-\textbf{[USER: I LACK DEEP METHODOLOGICAL THEORY REGARDING ANTHROPIC'S LINEAR-DIRECTION EXPERIMENT AND HOW YOU SPECIFICALLY INJECTED LATENT VECTORS FOR EMOTIONS. PLEASE ADD A CONCISE SUBSECTION EXPLAINING THE LINEAR ADDITION EQUATIONS AND HOW THE 'ALPHA' SWEEP WAS STRUCTURED.]}
+\subsection{Linear Representation and Activation Addition}
+Following the Linear Representation framework for LLMs, we test whether emotional concepts are encoded as single, steerable directions in latent space. For a given emotion, we first compute its empirical direction vector $\hat{d}$ by taking the difference in the mean final-layer residual stream activations between positive prompts (e.g., ``I feel happy'') and negated prompts (e.g., ``I do not feel happy''). 
+
+To evaluate if the model causally uses this direction, we apply Activation Addition. We inject a scaled version of this latent vector directly into the residual stream $h_{L}$ during the forward pass of the negated prompts:
+\begin{equation}
+h'_{L} = h_{L} + \alpha \cdot \hat{d}
+\end{equation}
+where $\alpha$ is a multiplier coefficient linearly swept across a predetermined scale. We then record the model's output logit for the target emotion token at each $\alpha$ step. The coefficient of determination ($R^2$) of a linear regression fit between $\alpha$ and the target logit quantifies the linearity of the emotional representation. An $R^2 \approx 1$ confirms the concept is cleanly and linearly steerable using this isolated vector.
 
 % =================================================================
 \section{Dataset}
