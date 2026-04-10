@@ -17,6 +17,7 @@ env/
 *.ipynb
 
 ### Data & outputs ###
+# results
 data/*
 models/*
 

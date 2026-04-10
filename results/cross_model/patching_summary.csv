@@ -1,0 +1,3 @@
+model_name,patch_samples,best_patch_type,best_layer,best_delta,best_resid,best_mlp,best_attn
+gpt2-small,1000,resid,9,3.6906152648925783,L9 (+3.691),L0 (+2.904),L2 (+0.217)
+pythia-160m,1000,resid,3,5.3379921875,L3 (+5.338),L0 (+2.684),L8 (+0.232)

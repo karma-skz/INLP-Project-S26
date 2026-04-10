@@ -1,0 +1,3 @@
+model_name,success_with_sgr_gt1,failure_with_sgr_le1,success_mismatch_rate,failure_mismatch_rate
+gpt2-small,10893,0,0.5608876988826528,0.0
+pythia-160m,16724,0,0.9396561411394538,0.0
