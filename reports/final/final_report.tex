@@ -2,18 +2,15 @@
 %  Can Pink Elephants Exist Final Submission Report (ACL Format)
 % =========================================================================
 \documentclass[11pt]{article}
-\usepackage{../../acl-style-files/acl}
-\usepackage{times}
+\usepackage{acl}
 \usepackage{latexsym}
-\usepackage[T1]{fontenc}
+\IfFileExists{8r.enc}{\usepackage{times}}{}
 \usepackage[utf8]{inputenc}
-\usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{xcolor}
-\usepackage{multirow}
 \usepackage{subcaption}
 \usepackage{float}
 
@@ -137,7 +134,7 @@ Our experiments run on \texttt{gpt2-small} (117M parameters, 12 layers, 12 heads
 \subsection{Cross-Model Quantitative Analysis}
 
 \subsubsection{Negation Failure Rates and Rank Shifts}
-Over the full CounterFact dataset, \texttt{gpt2-small} produced 2,498 negation failures out of 21,919 samples, a failure rate of \textbf{11.40\%}. \texttt{pythia-160m} showed 1,764 failures out of 19,562 samples, or \textbf{9.02\%}. On successful negations, both models achieve dramatic rank suppression: the median rank shift is $+668$ for GPT-2 Small and $+938.5$ for Pythia-160M, meaning the target token is pushed hundreds of positions deeper in the vocabulary distribution. On failures, the situation reverses sharply: the median rank shift is $-174.5$ for GPT-2 Small and $-296.5$ for Pythia-160M, confirming that the forbidden token actively moves \emph{up} the logit distribution when negation fails.
+Over the full CounterFact dataset, \texttt{gpt2-small} produced 2,498 negation failures out of 21,919 samples, a failure rate of \textbf{11.40\%}. \texttt{pythia-160m} showed 1,764 failures out of 19,562 samples, or \textbf{9.02\%}. On successful negations, both models achieve dramatic rank suppression: the median rank shift is $+957$ for GPT-2 Small and $+1{,}198$ for Pythia-160M (outcome-stratified medians), meaning the target token is pushed hundreds of positions deeper in the vocabulary distribution. On failures, the situation reverses sharply: the median rank shift is $-174.5$ for GPT-2 Small and $-296.5$ for Pythia-160M, confirming that the forbidden token actively moves \emph{up} the logit distribution when negation fails.
 
 \subsubsection{SGR as a Predictor of Failure}
 The SGR exhibits a clear bifurcation by outcome for GPT-2 Small. Successful negations have a median SGR of 24.83, while failed negations have a median SGR of \textbf{48.13} — nearly double. This aligns with the Competitive Gating Hypothesis: when FFN retrieval is unusually strong relative to inhibition capacity, the gate fails. Pythia-160M presents a different picture: the median SGR for successes (24.48) and failures (24.44) are nearly identical. This suggests that for Pythia, SGR as computed by an aggregate FFN/Attention ratio does not cleanly separate outcomes, implying a more distributed suppression mechanism in that model family.
@@ -194,38 +191,38 @@ We tested three negation variants on the full dataset to evaluate the bounds of 
 \toprule
 \textbf{Model} & \textbf{Negator} & \textbf{Fail\%} & \textbf{Med. SGR} \\
 \midrule
-gpt2-small & not & 14.19 & 27.09 \\
-gpt2-small & unlikely to be & 4.43 & 17.30 \\
-gpt2-small & rarely & 2.77 & 9.67 \\
+gpt2-small & not & 11.40 & 144.91 \\
+gpt2-small & unlikely to be & 4.51 & 38.77 \\
+gpt2-small & rarely & 2.93 & 21.18 \\
 \midrule
-pythia-160m & not & 9.39 & 24.48 \\
-pythia-160m & unlikely to be & 4.01 & 22.94 \\
-pythia-160m & rarely & 3.64 & 25.36 \\
+pythia-160m & not & 9.02 & 25.85 \\
+pythia-160m & unlikely to be & 3.98 & 23.33 \\
+pythia-160m & rarely & 3.52 & 26.75 \\
 \bottomrule
 \end{tabular}
-\caption{Failure rates and median SGR by model and negation type.}
+\caption{Failure rates and median SGR by model and negation type. Numbers computed from per-negator benchmark CSVs on the full CounterFact dataset (inf $\to$ NaN before median).}
 \label{tab:soft}
 \end{table}
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{../../figures/soft_negation_analysis/combined_vertical.png}
-    \caption{Behavioral and Mechanistic Impact of Soft vs. Hard Negation. (Left) Dataset-level failure rates demonstrate a paradoxical decrease in hallucinations when processing linguistically softer negators compared to explicit hard negation. (Right) The corresponding Signal-to-Gate Ratio (SGR) distributions (log scale) reveal a downward shift in SGR for soft negators, indicating geometrically stronger late-stage inhibitory attention.}
+    \caption{Behavioral and Mechanistic Impact of Soft vs. Hard Negation. (Left) Dataset-level failure rates show a paradoxical decrease in hallucinations for linguistically softer negators compared to explicit hard negation. (Right) Log-scale SGR distributions. For \texttt{gpt2-small}, soft negators produce a clear downward shift in SGR. For \texttt{pythia-160m}, the SGR pattern is non-monotonic across negators, consistent with its more distributed inhibition mechanism.}
     \label{fig:soft_negation}
 \end{figure}
 
-Our original hypothesis was that soft and probabilistic negators would fare \emph{worse} than the hard ``not'', as they theoretically provide a weaker logical signal. This hypothesis was \textbf{rejected}. Counter-intuitively, while hard negation is linguistically more explicit, both architectures exhibited significantly higher failure rates when processing it (14.19\% for GPT-2 Small; 9.39\% for Pythia-160M) compared to soft negators (dropping to $\sim$2-4\%). The suffix ``rarely'' yields the \emph{lowest} failure rate of any tested negator for both models.
+Our original hypothesis was that soft and probabilistic negators would fare \emph{worse} than the hard ``not'', as they theoretically provide a weaker logical signal. This hypothesis was \textbf{rejected}. Counter-intuitively, while hard negation is linguistically more explicit, both architectures exhibited significantly higher failure rates when processing it (11.40\% for GPT-2 Small; 9.02\% for Pythia-160M) compared to soft negators (dropping to $\sim$3--5\%). The suffix ``rarely'' yields the \emph{lowest} failure rate of any tested negator for both models.
 
-Mechanistically, this improvement is reflected in the Signal-to-Gate Ratio (SGR). For GPT-2 Small, the median SGR drops from 27.09 for hard negation down to 9.67 for ``rarely'', indicating that soft negators trigger a geometrically stronger inhibitory attention response relative to FFN memory retrieval. We hypothesize this occurs due to two factors: computational depth and semantic magnitude. Multi-token negators like ``unlikely to be'' afford the attention circuit more forward-pass cycles to accumulate an inhibitory subtraction vector. Furthermore, semantically ``softer'' terms require less geometric distance to resolve than a strict polarity inversion, lowering the threshold of inhibitory force required to successfully suppress the hallucination.
+Mechanistically, this improvement is reflected in the Signal-to-Gate Ratio (SGR). For GPT-2 Small, the median SGR drops monotonically from 144.91 for hard negation down to 21.18 for ``rarely'', indicating that soft negators trigger a geometrically stronger inhibitory attention response relative to FFN memory retrieval. For \texttt{pythia-160m}, the pattern is non-monotonic: the SGR moves from 25.85 (``not'') to 23.33 (``unlikely to be'') and then rises to 26.75 (``rarely''), suggesting that Pythia's inhibition circuit is less sensitive to the surface form of the negator and the failure-rate reduction is driven by a weakened retrieval signal rather than stronger inhibition. We hypothesize this occurs due to two factors: computational depth and semantic magnitude. Multi-token negators like ``unlikely to be'' afford the attention circuit more forward-pass cycles to accumulate an inhibitory subtraction vector. Furthermore, semantically ``softer'' terms require less geometric distance to resolve than a strict polarity inversion, lowering the threshold of inhibitory force required to successfully suppress the hallucination.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Emotion Negation Direction Analysis}
 
 \subsubsection{Emotion Direction Geometry}
-To understand how negation operates geometrically, we performed a comparative Principal Component Analysis (PCA) on the final-layer residual stream representations of polar emotion concepts. Analysis of the anchor coordinates reveals that the principal components naturally separate the semantic space: PC1 ($\sim$53\% explained variance) isolates emotional magnitude (separating Joy and Sadness from Neutrality), while PC2 ($\sim$8\% explained variance) isolates semantic polarity (separating Joy from Sadness). 
+To understand how negation operates geometrically, we performed a comparative Principal Component Analysis (PCA) on the final-layer residual stream representations of polar emotion concepts. Analysis of the anchor coordinates reveals that the principal components naturally separate the semantic space: the first component captures the majority of variance and isolates emotional magnitude (separating Joy and Sadness from Neutrality), while the second component isolates semantic polarity (separating Joy from Sadness).
 
-Tracking the layer-wise trajectory of negated prompts (e.g., ``I do not feel happy'') provides a direct geometric visualization of the Competitive Gating Hypothesis. In the early layers (L0--L6), both models exhibit a ``Pink Elephant'' effect: logic-blind Feed-Forward Networks perform factual retrieval, pulling the representation aggressively toward the positive ``Joy'' anchor along the PC1 axis, despite the explicit presence of a negator.
+Tracking the layer-wise trajectory of negated prompts (e.g., ``I do not feel happy'') provides a direct geometric visualization of the Competitive Gating Hypothesis. As visible in the PCA trajectory plots, both models initially pull representations toward the positive ``Joy'' anchor despite the explicit presence of a negator — a ``Pink Elephant'' effect driven by early-layer FFN retrieval acting prior to any inhibitory correction.
 
 \begin{figure}[h]
     \centering
@@ -237,7 +234,7 @@ Tracking the layer-wise trajectory of negated prompts (e.g., ``I do not feel hap
 \subsubsection{Negation Geometry and the Excluded Middle}
 At the Crossover Point (typically around L6 or L7), late-stage inhibitory attention heads activate to perform vector subtraction, pivoting the trajectory sharply away from the hallucinated concept. Notably, the trajectory from Layers 0 through 10 resides in a distant, orthogonal syntactic sub-space before executing a massive, discrete geometric jump into the target semantic space at Layer 11. This jump represents the exact architectural moment the models translate their internal math into the final pre-unembedding vocabulary matrix.
 
-Critically, the models resolve this geometric tug-of-war differently in the final layer. Pythia-160M’s inhibition gate under-corrects; its final L11 state is dragged decisively past the neutral origin but falls short of perfectly aligning with the ``Sadness'' antonym, leaving the model stranded in a positive-skewed semantic compromise (an ``Excluded Middle''). Conversely, GPT-2 Small executes a dramatic over-correction, with its inhibitory heads pushing the residual stream entirely past the ``Sadness'' antonym on the polarity axis.
+Critically, the models resolve this geometric tug-of-war differently. For \textbf{negated sadness}, Pythia-160M's inhibition gate under-corrects: 77.8\% of negated-sadness representations land closer to the neutral pole than to the ``Joy'' antonym — an ``Excluded Middle'' failure in which the model neither maintains the original emotion nor inverts it. For \textbf{negated joy}, the picture reverses: only 22.2\% of Pythia's representations collapse to neutral; the majority are pushed toward or past the Sadness pole. GPT-2 Small, by contrast, exhibits 0\% neutral collapse for negated joy, executing a clear over-correction in the direction of Sadness.
 
 \subsubsection{Intervention Linearity}
 To quantify the mechanism of this vector subtraction, we injected a scaled version of the emotion direction ($\alpha \cdot \hat{d}$) into the residual stream and measured the $R^2$ of a linear fit between $\alpha$ and the logit margin. 
@@ -270,16 +267,14 @@ The per-layer DLA means confirm the core premise of the Competitive Gating Hypot
 The SGR's predictive power is asymmetric. The iron rule that \emph{zero failures occur at SGR $\leq$ 1} holds for both models under hard ``not'' negation, validating the metric's lower bound. However, the majority of successes also have SGR $> 1$ (56\% for GPT-2 Small, 94\% for Pythia). This reveals a critical limitation: a high SGR is necessary but not sufficient for failure. Additional factors, such as the concentration of DLA in the final layers versus earlier layers and the sharpness of the crossover, further determine outcomes. The contrast between GPT-2 Small (where SGR does differentiate failures by median value) and Pythia-160M (where it does not) further suggests that Pythia has a more diffuse and robust inhibition circuit.
 
 \subsection{Mechanistic Explanation of Soft Negation Success}
-The most counterintuitive finding of our work is that multi-word soft negators (`` rarely'', `` unlikely to be'') \emph{outperform} explicit boolean negation. The mechanistic analysis from the SGR pipeline offers an explanation: for `` rarely'' in GPT-2 Small, the median SGR collapses from 27.09 (hard ``not'') to \textbf{9.67}. Given that:
+The most counterintuitive finding of our work is that multi-word soft negators (``rarely'', ``unlikely to be'') \emph{outperform} explicit boolean negation. The mechanistic analysis from the SGR pipeline offers an explanation: for ``rarely'' in GPT-2 Small, the median SGR collapses from 144.91 (hard ``not'') to \textbf{21.18}. Given that:
 \[
 \text{SGR} = \frac{\text{FFN retrieval}}{\text{Attention inhibition}}
 \]
-a reduced SGR implies either stronger inhibition or a weaker retrieval signal. Since explicit inhibition-head DLA analysis is not rep\subsection{Emotion Negation and the Geometry of Suppression}
-The emotion negation experiment reveals a qualitatively different failure mode from factual negation. Rather than a reflex retrieval that overwhelms a gate, the failure here is one of \emph{geometric incompleteness}: models do not have a learned representation of ``not-emotion'' that coherently maps to the opposite pole. GPT-2 Small, with its high-norm late-layer emotion directions, performs crude semantic inversion (moving toward the opposite), but Pythia-160M frequently collapses into a neutral representation (78\% of ``not sad'' trials). This ``Excluded Middle'' fallacy shows that even when a model encodes emotion linearly (high $R^2$), the negation operator does not reliably reverse the direction in latent space. Joy's non-linearity ($R^2 = 0.22$) in GPT-2 Small and Anger's in Pythia ($R^2 = 0.29$) suggest that high-frequency or polysemantic affect categories resist single-direction steering entirely.
-orted per negator in the current pipeline, the most likely explanation, consistent with the significant failure-rate drop, is that the `` rarely'' context \emph{weakens the FFN retrieval signal}: the model has encountered `` rarely'' far less frequently in the context of strong factual entities during pretraining, so the key-value memory fires less confidently. The `` maybe'' control acts as expected, producing the highest SGR and near-identical failure rates to hard negation, confirming that ambiguous hedges provide no inhibitory signal whatsoever.
+a reduced SGR implies either stronger inhibition or a weaker retrieval signal. Since explicit inhibition-head DLA analysis is not reported per negator in the current pipeline, the most likely explanation, consistent with the significant failure-rate drop, is that the ``rarely'' context \emph{weakens the FFN retrieval signal}: the model has encountered ``rarely'' far less frequently in the context of strong factual entities during pretraining, so the key-value memory fires less confidently. The ``maybe'' control acts as expected, producing the highest SGR and near-identical failure rates to hard negation, confirming that ambiguous hedges provide no inhibitory signal whatsoever.
 
 \subsection{Emotion Negation and the Geometry of Suppression}
-Our geometric analysis of the residual stream validates the Competitive Gating Hypothesis, revealing that logical negation is resolved through an active, layer-wise vector tug-of-war rather than a discrete binary switch. The emotion PCA trajectories prove that early-layer factual retrieval generates a massive momentum toward the negated entity. The subsequent architectural jump at Layer 11 demonstrates that models attempt to resolve this via late-stage inhibitory vector subtraction. However, the failure to perfectly align with the logical antonym—resulting in either Pythia's semantic compromise or GPT-2's geometric over-correction—shows that LLM negation is highly volatile. The final prediction is not a flawless logical operation, but rather the literal vector sum of a dominant factual memory signal colliding with an imperfect, model-specific inhibitory gate.
+Our geometric analysis of the residual stream validates the Competitive Gating Hypothesis, revealing that logical negation is resolved through an active, layer-wise vector tug-of-war rather than a discrete binary switch. The emotion PCA trajectories show that early FFN retrieval generates momentum toward the negated entity before late-stage inhibition attempts a vector correction. However, the correction is imperfect and model-specific: Pythia-160M's ``Excluded Middle'' failure (77.8\% of negated-sadness representations collapse to neutral rather than inverting toward Joy) demonstrates that the inhibition gate can stall between poles. GPT-2 Small, by contrast, tends to over-correct toward the antonym pole rather than collapsing to neutral. The emotion-specific non-linearities (Joy $R^2=0.224$ in GPT-2; Anger $R^2=0.287$ in Pythia) further show that high-frequency or polysemantic affect categories resist single-direction steering entirely. The final prediction is not a clean logical operation, but the literal vector sum of a dominant factual memory signal colliding with an imperfect, model-specific inhibitory gate.
 
 % =================================================================
 \section{Limitations and Challenges}
@@ -301,7 +296,7 @@ Future efforts should expand from CounterFact to diverse behavioral tasks, track
 \section{Conclusion}
 \label{sec:conclusion}
 % =================================================================
-Negation in LLMs is not simply an abstract reasoning failure, but a physical capacity breakdown. Through this study, we tested two core hypotheses. First, the \textbf{Competitive Gating Hypothesis} was \textbf{validated}: dataset-scale DLA confirms that factual retrieval acts as a logic-blind FFN reflex, while negation acts as a structurally distinct attention-driven gate. Our Signal-to-Gate Ratio (SGR) proves that failures only occur when this early retrieval mathematically overwhelms downstream inhibition, a dynamic we causally verified via head amplification. Second, our \textbf{Soft Negation Hypothesis}---that linguistically softer negators would increase failure rates---was definitively \textbf{rejected}. Suffixes like ``rarely'' paradoxically reduced hallucinations and lowered the SGR compared to a hard ``not,'' revealing that multi-token or semantic-softness affords the network more cycles to compute a geometrically distinct inhibitory subtraction. By grounding the "Pink Elephant" effect within mechanistic circuits, this diagnostic approach represents a critical step toward re-engineering logical resilience in future models.
+Negation in LLMs is not simply an abstract reasoning failure, but a physical capacity breakdown. Through this study, we tested two core hypotheses. First, the \textbf{Competitive Gating Hypothesis} was \textbf{validated}: dataset-scale DLA confirms that factual retrieval acts as a logic-blind FFN reflex, while negation acts as a structurally distinct attention-driven gate. Our Signal-to-Gate Ratio (SGR) proves that failures only occur when early retrieval mathematically overwhelms downstream inhibition, a dynamic we causally verified via head amplification. Second, our \textbf{Soft Negation Hypothesis}---that linguistically softer negators would increase failure rates---was definitively \textbf{rejected}. Suffixes like ``rarely'' paradoxically reduced hallucinations from 11.40\% to 2.93\% in GPT-2 Small and from 9.02\% to 3.52\% in Pythia-160M. In GPT-2 Small, this corresponds to a monotonic collapse in median SGR from 144.91 to 21.18, indicating that soft negators weaken FFN retrieval. In Pythia-160M, the SGR pattern is non-monotonic ($25.85 \to 23.33 \to 26.75$), suggesting the improvement is driven by retrieval weakening rather than stronger inhibition. By grounding the ``Pink Elephant'' effect within mechanistic circuits, this diagnostic approach represents a critical step toward re-engineering logical resilience in future models.
 
 % =================================================================
 % References
